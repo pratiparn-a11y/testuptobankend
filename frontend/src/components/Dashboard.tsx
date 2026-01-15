@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
+import { LogOut, Plus, Image as ImageIcon, FileText, Trash2, X, Loader2, Calendar } from 'lucide-react';
 
 interface Memory {
     id: number;
@@ -10,12 +11,14 @@ interface Memory {
     created_at: string;
 }
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
     const [memories, setMemories] = useState<Memory[]>([]);
-    const [title, setTitle] = useState('');
-    const [note, setNote] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
-    const [showModal, setShowModal] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [newTitle, setNewTitle] = useState('');
+    const [newNote, setNewNote] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -26,9 +29,11 @@ const Dashboard: React.FC = () => {
         try {
             const response = await api.get('/memories/');
             setMemories(response.data);
-        } catch (err) {
-            console.error(err);
+        } catch (error) {
+            console.error('Error fetching memories:', error);
             navigate('/');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -39,63 +44,132 @@ const Dashboard: React.FC = () => {
 
     const handleAddMemory = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSubmitting(true);
         try {
-            await api.post('/memories/', { title, note, image_url: imageUrl });
-            setShowModal(false);
-            setTitle('');
-            setNote('');
-            setImageUrl('');
+            const formData = new FormData();
+            formData.append('title', newTitle);
+            formData.append('note', newNote);
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+            await api.post('/memories/', formData);
+
+            // Reset form
+            setNewTitle('');
+            setNewNote('');
+            setImageFile(null);
+            setIsModalOpen(false);
+
+            // Refresh
             fetchMemories();
-        } catch (err) {
-            console.error(err);
-            alert('ไม่สามารถเพิ่มความทรงจำได้');
+        } catch (error) {
+            console.error('Error adding memory:', error);
+            alert('เพิ่มความทรงจำไม่สำเร็จ (Failed to add memory)');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    const handleDelete = async (id: number) => {
+        if (!window.confirm('คุณต้องการลบความทรงจำนี้ใช่ไหม? (Delete this memory?)')) return;
+        try {
+            await api.delete(`/memories/${id}`);
+            setMemories(memories.filter((m) => m.id !== id));
+        } catch (error) {
+            console.error('Error deleting memory:', error);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <nav className="bg-white shadow-sm sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16 items-center">
-                        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-pink-500 to-rose-500">สมุดบันทึกความทรงจำ</h1>
-                        <button
-                            onClick={handleLogout}
-                            className="text-gray-500 hover:text-gray-700 font-medium transition-colors"
-                        >
-                            ออกจากระบบ
-                        </button>
+        <div className="min-h-screen pb-20">
+            {/* Navbar */}
+            <nav className="glass sticky top-0 z-50 border-b border-white/10 px-6 py-4">
+                <div className="max-w-7xl mx-auto flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-purple-500 to-blue-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
+                            <ImageIcon className="text-white h-6 w-6" />
+                        </div>
+                        <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-purple-200 hidden sm:block">
+                            Memory Keeper
+                        </h1>
                     </div>
+                    <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 text-gray-400 hover:text-red-400 transition-colors px-4 py-2 hover:bg-white/5 rounded-lg text-sm font-medium"
+                    >
+                        <span>ออกจากระบบ</span>
+                        <LogOut className="h-4 w-4" />
+                    </button>
                 </div>
             </nav>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex justify-between items-center mb-8">
-                    <h2 className="text-2xl font-bold text-gray-800">ช่วงเวลาของเรา</h2>
+            {/* Main Content */}
+            <main className="max-w-7xl mx-auto px-6 py-8">
+                {/* Header Section */}
+                <div className="flex justify-between items-end mb-10">
+                    <div>
+                        <h2 className="text-4xl font-bold text-white mb-2">My Gallery</h2>
+                        <p className="text-gray-400">เก็บรวบรวมช่วงเวลาดีๆ ของคุณ ({memories.length} รายการ)</p>
+                    </div>
                     <button
-                        onClick={() => setShowModal(true)}
-                        className="bg-gradient-to-r from-pink-500 to-rose-500 text-white px-6 py-2.5 rounded-full font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all"
+                        onClick={() => setIsModalOpen(true)}
+                        className="glass-button px-6 py-3 rounded-xl font-medium flex items-center gap-2 shadow-xl shadow-purple-500/20"
                     >
-                        + เพิ่มความทรงจำ
+                        <Plus className="h-5 w-5" />
+                        <span className="hidden sm:inline">เพิ่มความทรงจำ</span>
                     </button>
                 </div>
 
-                {memories.length === 0 ? (
-                    <div className="text-center py-20 bg-white rounded-3xl border border-gray-100 shadow-sm">
-                        <p className="text-gray-400 text-lg">ยังไม่มีความทรงจำ เริ่มบันทึกช่วงเวลาดีๆ ของเรากันเถอะ!</p>
+                {loading ? (
+                    <div className="flex justify-center items-center h-64">
+                        <Loader2 className="h-10 w-10 text-purple-400 animate-spin" />
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
                         {memories.map((memory) => (
-                            <div key={memory.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-shadow duration-300 overflow-hidden border border-gray-100 group">
+                            <div key={memory.id} className="glass rounded-2xl overflow-hidden break-inside-avoid hover:shadow-2xl hover:shadow-purple-500/10 transition-all duration-300 group">
                                 {memory.image_url && (
-                                    <div className="h-48 overflow-hidden">
-                                        <img src={memory.image_url} alt={memory.title} className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" />
+                                    <div className="relative aspect-auto max-h-[500px] overflow-hidden">
+                                        <img
+                                            src={memory.image_url}
+                                            alt={memory.title}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-between p-4">
+                                            <button
+                                                onClick={() => handleDelete(memory.id)}
+                                                className="text-white hover:text-red-400 bg-black/40 p-2 rounded-full backdrop-blur-sm transition"
+                                            >
+                                                <Trash2 className="h-5 w-5" />
+                                            </button>
+                                        </div>
                                     </div>
                                 )}
                                 <div className="p-6">
-                                    <h3 className="font-bold text-xl text-gray-800 mb-2">{memory.title}</h3>
-                                    <p className="text-gray-600 leading-relaxed text-sm mb-4">{memory.note}</p>
-                                    <p className="text-xs text-gray-400 font-medium">{new Date(memory.created_at).toLocaleDateString('th-TH')}</p>
+                                    <h3 className="text-xl font-semibold mb-2 text-white/90 leading-tight">
+                                        {memory.title}
+                                    </h3>
+                                    <p className="text-gray-400 text-sm leading-relaxed mb-4 font-light">
+                                        {memory.note}
+                                    </p>
+                                    <div className="flex items-center gap-2 text-xs text-purple-300/70 border-t border-white/5 pt-4">
+                                        <Calendar className="h-3 w-3" />
+                                        <span>
+                                            {new Date(memory.created_at).toLocaleDateString('th-TH', {
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                            })}
+                                        </span>
+                                    </div>
+                                    {!memory.image_url && (
+                                        <button
+                                            onClick={() => handleDelete(memory.id)}
+                                            className="absolute top-4 right-4 text-gray-500 hover:text-red-400 bg-white/5 p-2 rounded-full transition opacity-0 group-hover:opacity-100"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -103,58 +177,81 @@ const Dashboard: React.FC = () => {
                 )}
             </main>
 
-            {/* Modal Overlay */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl transform transition-all scale-100">
-                        <h3 className="text-2xl font-bold mb-6 text-gray-800">เพิ่มความทรงจำใหม่</h3>
-                        <form onSubmit={handleAddMemory} className="space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">หัวข้อ</label>
+            {/* Modal */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+                    <div
+                        className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity"
+                        onClick={() => setIsModalOpen(false)}
+                    ></div>
+                    <div className="glass w-full max-w-lg rounded-2xl p-8 relative z-10 animate-fade-in-up">
+                        <button
+                            onClick={() => setIsModalOpen(false)}
+                            className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+
+                        <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                            <Plus className="h-6 w-6 text-purple-400" />
+                            เพิ่มความทรงจำใหม่
+                        </h3>
+
+                        <form onSubmit={handleAddMemory} className="space-y-6">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">หัวข้อ</label>
                                 <input
                                     type="text"
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
-                                    value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="เช่น วันครบรอบของเรา"
+                                    placeholder="ตั้งชื่อความทรงจำ..."
+                                    className="glass-input w-full px-4 py-3 rounded-xl"
+                                    value={newTitle}
+                                    onChange={(e) => setNewTitle(e.target.value)}
                                     required
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">บันทึกข้อความ</label>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">บันทึกช่วยจำ</label>
                                 <textarea
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
-                                    value={note}
-                                    onChange={(e) => setNote(e.target.value)}
-                                    placeholder="เขียนอะไรหวานๆ หน่อยสิ..."
-                                    rows={3}
+                                    placeholder="เขียนบรรยายความรู้สึก..."
+                                    className="glass-input w-full px-4 py-3 rounded-xl min-h-[120px] resize-none"
+                                    value={newNote}
+                                    onChange={(e) => setNewNote(e.target.value)}
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">ลิ้งค์รูปภาพ</label>
-                                <input
-                                    type="text"
-                                    className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-pink-500 focus:border-transparent outline-none transition-all"
-                                    value={imageUrl}
-                                    onChange={(e) => setImageUrl(e.target.value)}
-                                    placeholder="https://..."
-                                />
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-300 ml-1">รูปภาพ (ถ้ามี)</label>
+                                <div className="relative border-2 border-dashed border-white/20 rounded-xl p-8 transition-colors hover:border-purple-500/50 hover:bg-white/5 text-center cursor-pointer group">
+                                    <input
+                                        type="file"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
+                                        accept="image/*"
+                                    />
+                                    <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-purple-300 transition-colors">
+                                        {imageFile ? (
+                                            <>
+                                                <ImageIcon className="h-8 w-8 text-green-400" />
+                                                <span className="text-green-400 font-medium truncate max-w-[200px]">{imageFile.name}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <ImageIcon className="h-8 w-8" />
+                                                <span>คลิกเพื่ออัพโหลดรูปภาพ</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
-                            <div className="flex gap-3 mt-8">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowModal(false)}
-                                    className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
-                                >
-                                    ยกเลิก
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="flex-1 px-4 py-2.5 rounded-lg bg-pink-500 text-white font-semibold hover:bg-pink-600 transition-colors shadow-lg shadow-pink-500/30"
-                                >
-                                    บันทึก
-                                </button>
-                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={submitting}
+                                className="glass-button w-full py-4 rounded-xl font-bold text-lg mt-4 disabled:opacity-70 flex justify-center items-center gap-2"
+                            >
+                                {submitting ? <Loader2 className="animate-spin" /> : 'บันทึกความทรงจำ'}
+                            </button>
                         </form>
                     </div>
                 </div>
