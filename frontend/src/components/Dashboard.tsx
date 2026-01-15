@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { LogOut, Plus, Image as ImageIcon, FileText, Trash2, X, Loader2, Calendar } from 'lucide-react';
+import { LogOut, Plus, Image as ImageIcon, Trash2, X, Loader2, Calendar } from 'lucide-react';
 
 interface Memory {
     id: number;
