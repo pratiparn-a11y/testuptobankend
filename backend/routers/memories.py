@@ -25,17 +25,27 @@ class MemoryResponse(BaseModel):
     class Config:
         orm_mode = True
 
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
+
 @router.post("/", response_model=MemoryResponse)
 def create_memory(
     memory: MemoryCreate,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    db_memory = models.Memory(**memory.dict(), owner_id=current_user.id)
-    db.add(db_memory)
-    db.commit()
-    db.refresh(db_memory)
-    return db_memory
+    try:
+        db_memory = models.Memory(**memory.dict(), owner_id=current_user.id)
+        db.add(db_memory)
+        db.commit()
+        db.refresh(db_memory)
+        return db_memory
+    except Exception as e:
+        logger.error(f"Error creating memory: {str(e)}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
 @router.get("/", response_model=List[MemoryResponse])
 def get_memories(
