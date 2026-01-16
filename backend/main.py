@@ -12,15 +12,16 @@ app = FastAPI()
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://your-railway-app-url.up.railway.app" # Update this after deployment
+    "https://testuptobankend-nzc5.vercel.app",  # Production Vercel URL
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # For dev, allow all. Restrict in prod.
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 @app.get("/")
