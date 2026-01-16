@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Dancing+Script:wght@400;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,20 +6,97 @@
 
 @layer base {
   body {
-    @apply font-['Kanit'] bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 min-h-screen text-white antialiased selection:bg-purple-500 selection:text-white;
+    @apply font-['Kanit'] bg-gradient-to-br from-rose-900 via-pink-800 to-red-900 min-h-screen text-white antialiased selection:bg-pink-500 selection:text-white;
   }
 }
 
 @layer utilities {
   .glass {
-    @apply bg-white/10 backdrop-blur-lg border border-white/20 shadow-xl;
+    @apply bg-white/10 backdrop-blur-xl border border-pink-300/20 shadow-2xl shadow-pink-500/10;
   }
 
   .glass-input {
-    @apply bg-white/5 border border-white/10 text-white placeholder-gray-400 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-all duration-300;
+    @apply bg-white/5 border border-pink-300/20 text-white placeholder-pink-200/50 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-400/30 transition-all duration-300 rounded-xl;
   }
 
   .glass-button {
-    @apply bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/30 transition-all duration-300 transform hover:-translate-y-0.5 active:scale-95;
+    @apply bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white shadow-lg shadow-pink-500/40 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-500/50 active:scale-95 font-medium;
   }
+
+  .romantic-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-pink-200 via-rose-300 to-pink-200;
+  }
+
+  .heart-glow {
+    @apply text-pink-400 drop-shadow-[0_0_15px_rgba(236, 72, 153, 0.8)];
+  }
+}
+
+/* Floating Hearts Animation */
+@keyframes float-heart {
+
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0.7;
+  }
+
+  50% {
+    transform: translateY(-20px) rotate(10deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(236, 72, 153, 0.8);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-float-heart {
+  animation: float-heart 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ec4899, #f43f5e);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #f472b6, #fb7185);
 }
