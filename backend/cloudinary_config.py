@@ -15,11 +15,12 @@ cloudinary.config(
 
 def upload_image(file):
     """
-    Uploads a file to Cloudinary and returns the secure URL.
+    Uploads a file to Cloudinary and returns (secure_url, error).
     """
     try:
         upload_result = cloudinary.uploader.upload(file)
-        return upload_result.get("secure_url")
+        return upload_result.get("secure_url"), None
     except Exception as e:
-        print(f"Cloudinary upload error: {e}")
-        return None
+        error_msg = str(e)
+        print(f"Cloudinary upload error: {error_msg}")
+        return None, error_msg

@@ -47,14 +47,14 @@ def create_memory(
         
         if image and image.filename:
             logger.info(f"Uploading image to Cloudinary: {image.filename}")
-            uploaded_url = upload_image(image.file)
+            uploaded_url, cloudinary_error = upload_image(image.file)
             if uploaded_url:
                 final_image_url = uploaded_url
             else:
-                logger.error("Cloudinary upload failed")
+                logger.error(f"Cloudinary upload failed: {cloudinary_error}")
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Cloudinary upload failed. Please check backend environment variables (API Key/Secret)."
+                    detail=f"Cloudinary upload failed: {cloudinary_error}. Please check Render environment variables."
                 )
         
         db_memory = models.Memory(
