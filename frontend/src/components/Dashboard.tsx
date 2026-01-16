@@ -16,7 +16,7 @@ const Dashboard = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newTitle, setNewTitle] = useState('');
     const [newNote, setNewNote] = useState('');
-    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imageUrl, setImageUrl] = useState('');
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
@@ -46,18 +46,16 @@ const Dashboard = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const formData = new FormData();
-            formData.append('title', newTitle);
-            formData.append('note', newNote);
-            if (imageFile) {
-                formData.append('image', imageFile);
-            }
-            await api.post('/memories/', formData);
+            await api.post('/memories/', {
+                title: newTitle,
+                note: newNote || null,
+                image_url: imageUrl || null,
+            });
 
             // Reset form
             setNewTitle('');
             setNewNote('');
-            setImageFile(null);
+            setImageUrl('');
             setIsModalOpen(false);
 
             // Refresh
@@ -221,28 +219,15 @@ const Dashboard = () => {
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-300 ml-1">รูปภาพ (ถ้ามี)</label>
-                                <div className="relative border-2 border-dashed border-white/20 rounded-xl p-8 transition-colors hover:border-purple-500/50 hover:bg-white/5 text-center cursor-pointer group">
-                                    <input
-                                        type="file"
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                        onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
-                                        accept="image/*"
-                                    />
-                                    <div className="flex flex-col items-center gap-2 text-gray-400 group-hover:text-purple-300 transition-colors">
-                                        {imageFile ? (
-                                            <>
-                                                <ImageIcon className="h-8 w-8 text-green-400" />
-                                                <span className="text-green-400 font-medium truncate max-w-[200px]">{imageFile.name}</span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <ImageIcon className="h-8 w-8" />
-                                                <span>คลิกเพื่ออัพโหลดรูปภาพ</span>
-                                            </>
-                                        )}
-                                    </div>
-                                </div>
+                                <label className="text-sm font-medium text-gray-300 ml-1">ลิงก์รูปภาพ (ถ้ามี)</label>
+                                <input
+                                    type="url"
+                                    placeholder="https://example.com/image.jpg"
+                                    className="glass-input w-full px-4 py-3 rounded-xl"
+                                    value={imageUrl}
+                                    onChange={(e) => setImageUrl(e.target.value)}
+                                />
+                                <p className="text-xs text-gray-500 ml-1">วาง URL รูปภาพจาก Imgur, Google Photos หรือเว็บอื่นๆ</p>
                             </div>
 
                             <button
