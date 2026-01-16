@@ -1,35 +1,76 @@
+@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Dancing+Script:wght@400;700&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  body {
-    @apply font-['Kanit'] bg-gradient-to-br from-rose-900 via-pink-800 to-red-900 min-h-screen text-white antialiased selection:bg-pink-500 selection:text-white;
-  }
+/* Romantic Love Theme - Custom Styles */
+body {
+  font-family: 'Kanit', sans-serif;
+  background: linear-gradient(135deg, #881337 0%, #9d174d 50%, #7f1d1d 100%);
+  min-height: 100vh;
+  color: white;
+  -webkit-font-smoothing: antialiased;
 }
 
-@layer utilities {
-  .glass {
-    @apply bg-white/10 backdrop-blur-xl border border-pink-300/20 shadow-2xl shadow-pink-500/10;
-  }
+/* Glass Effect */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(236, 72, 153, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(236, 72, 153, 0.15);
+}
 
-  .glass-input {
-    @apply bg-white/5 border border-pink-300/20 text-white placeholder-pink-200/50 focus:outline-none focus:border-pink-400 focus:ring-2 focus:ring-pink-400/30 transition-all duration-300 rounded-xl;
-  }
+.glass-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(236, 72, 153, 0.2);
+  color: white;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+}
 
-  .glass-button {
-    @apply bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-400 hover:to-rose-400 text-white shadow-lg shadow-pink-500/40 transition-all duration-300 transform hover:-translate-y-1 hover:shadow-xl hover:shadow-pink-500/50 active:scale-95 font-medium;
-  }
+.glass-input::placeholder {
+  color: rgba(251, 207, 232, 0.5);
+}
 
-  .romantic-text {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-pink-200 via-rose-300 to-pink-200;
-  }
+.glass-input:focus {
+  outline: none;
+  border-color: #ec4899;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.3);
+}
 
-  .heart-glow {
-    @apply text-pink-400 drop-shadow-[0_0_15px_rgba(236, 72, 153, 0.8)];
-  }
+.glass-button {
+  background: linear-gradient(135deg, #ec4899 0%, #f43f5e 100%);
+  color: white;
+  font-weight: 500;
+  box-shadow: 0 10px 40px rgba(236, 72, 153, 0.4);
+  transition: all 0.3s ease;
+}
+
+.glass-button:hover {
+  background: linear-gradient(135deg, #f472b6 0%, #fb7185 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 15px 50px rgba(236, 72, 153, 0.5);
+}
+
+.glass-button:active {
+  transform: scale(0.95);
+}
+
+.glass-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Romantic Text Gradient */
+.romantic-text {
+  background: linear-gradient(90deg, #fce7f3, #fbcfe8, #fce7f3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.heart-glow {
+  color: #f472b6;
+  filter: drop-shadow(0 0 15px rgba(236, 72, 153, 0.8));
 }
 
 /* Floating Hearts Animation */
@@ -59,28 +100,12 @@
   }
 }
 
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-
-  100% {
-    background-position: 200% 0;
-  }
-}
-
 .animate-float-heart {
   animation: float-heart 3s ease-in-out infinite;
 }
 
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
 }
 
 /* Custom scrollbar */
@@ -99,4 +124,10 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(180deg, #f472b6, #fb7185);
+}
+
+/* Text selection */
+::selection {
+  background: rgba(236, 72, 153, 0.5);
+  color: white;
 }
