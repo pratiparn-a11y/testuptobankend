@@ -18,6 +18,7 @@ const Dashboard = () => {
     const [newNote, setNewNote] = useState('');
     const [imageUrl, setImageUrl] = useState('');
     const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
@@ -41,6 +42,21 @@ const Dashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/');
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files ? e.target.files[0] : null;
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        } else {
+            setImageFile(null);
+            setImagePreview(null);
+        }
     };
 
     const handleAddMemory = async (e: React.FormEvent) => {
@@ -67,6 +83,7 @@ const Dashboard = () => {
             setNewNote('');
             setImageUrl('');
             setImageFile(null);
+            setImagePreview(null);
             setIsModalOpen(false);
             fetchMemories();
         } catch (error) {
@@ -280,23 +297,33 @@ const Dashboard = () => {
                                         <ImageIcon className="h-4 w-4" />
                                         รูปภาพจากเครื่อง
                                     </label>
-                                    <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-6 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group">
+                                    <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-4 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group min-h-[160px] flex items-center justify-center overflow-hidden">
                                         <input
                                             type="file"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                            onChange={handleFileChange}
                                             accept="image/*"
                                         />
-                                        <div className="flex flex-col items-center gap-2 text-pink-200/40 group-hover:text-pink-300 transition-colors">
-                                            {imageFile ? (
-                                                <>
-                                                    <Heart className="h-8 w-8 text-pink-500 animate-pulse" fill="currentColor" />
-                                                    <span className="text-pink-200 font-medium truncate max-w-[200px]">{imageFile.name}</span>
-                                                </>
+                                        <div className="flex flex-col items-center gap-2 text-pink-200/40 group-hover:text-pink-300 transition-colors w-full h-full">
+                                            {imagePreview ? (
+                                                <div className="relative w-full h-32">
+                                                    <img
+                                                        src={imagePreview}
+                                                        alt="Preview"
+                                                        className="w-full h-full object-cover rounded-xl shadow-lg border border-pink-300/20"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                        <Sparkles className="text-white h-6 w-6 animate-pulse" />
+                                                    </div>
+                                                    <p className="text-xs text-pink-200 mt-2 font-medium truncate px-2">{imageFile?.name}</p>
+                                                </div>
                                             ) : (
                                                 <>
-                                                    <ImageIcon className="h-8 w-8" />
-                                                    <span>เลือกรูปภาพจากเครื่องของคุณ</span>
+                                                    <div className="w-12 h-12 rounded-full bg-pink-500/10 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
+                                                        <ImageIcon className="h-6 w-6 text-pink-400" />
+                                                    </div>
+                                                    <span className="text-sm font-medium">เลือกรูปภาพจากเครื่องของคุณ</span>
+                                                    <p className="text-[10px] opacity-50">คลิกเพื่อเปิดโฟลเดอร์</p>
                                                 </>
                                             )}
                                         </div>
