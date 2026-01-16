@@ -17,6 +17,7 @@ const Dashboard = () => {
     const [newTitle, setNewTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [imageUrl, setImageUrl] = useState('');
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
@@ -46,14 +47,26 @@ const Dashboard = () => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await api.post('/memories/', {
-                title: newTitle,
-                note: newNote || null,
-                image_url: imageUrl || null,
+            const formData = new FormData();
+            formData.append('title', newTitle);
+            formData.append('note', newNote || '');
+            if (imageFile) {
+                formData.append('image', imageFile);
+            }
+            if (imageUrl) {
+                formData.append('image_url', imageUrl);
+            }
+
+            await api.post('/memories/', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data',
+                },
             });
+
             setNewTitle('');
             setNewNote('');
             setImageUrl('');
+            setImageFile(null);
             setIsModalOpen(false);
             fetchMemories();
         } catch (error) {
@@ -261,19 +274,54 @@ const Dashboard = () => {
                                 />
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
-                                    <ImageIcon className="h-4 w-4" />
-                                    ลิงก์รูปภาพ (ถ้ามี)
-                                </label>
-                                <input
-                                    type="url"
-                                    placeholder="https://example.com/your-photo.jpg"
-                                    className="glass-input w-full px-4 py-4"
-                                    value={imageUrl}
-                                    onChange={(e) => setImageUrl(e.target.value)}
-                                />
-                                <p className="text-xs text-pink-200/40 ml-1">วาง URL รูปจาก Imgur, Google Photos หรือเว็บอื่นๆ</p>
+                            <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
+                                        <ImageIcon className="h-4 w-4" />
+                                        รูปภาพจากเครื่อง
+                                    </label>
+                                    <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-6 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group">
+                                        <input
+                                            type="file"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            onChange={(e) => setImageFile(e.target.files ? e.target.files[0] : null)}
+                                            accept="image/*"
+                                        />
+                                        <div className="flex flex-col items-center gap-2 text-pink-200/40 group-hover:text-pink-300 transition-colors">
+                                            {imageFile ? (
+                                                <>
+                                                    <Heart className="h-8 w-8 text-pink-500 animate-pulse" fill="currentColor" />
+                                                    <span className="text-pink-200 font-medium truncate max-w-[200px]">{imageFile.name}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ImageIcon className="h-8 w-8" />
+                                                    <span>เลือกรูปภาพจากเครื่องของคุณ</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="relative flex items-center py-2">
+                                    <div className="flex-grow border-t border-pink-300/10"></div>
+                                    <span className="flex-shrink mx-4 text-xs text-pink-200/20">หรือ</span>
+                                    <div className="flex-grow border-t border-pink-300/10"></div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
+                                        <Sparkles className="h-4 w-4" />
+                                        วางลิงก์รูปภาพ
+                                    </label>
+                                    <input
+                                        type="url"
+                                        placeholder="https://example.com/your-photo.jpg"
+                                        className="glass-input w-full px-4 py-4"
+                                        value={imageUrl}
+                                        onChange={(e) => setImageUrl(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
                             <button

@@ -30,14 +30,35 @@ import traceback
 
 logger = logging.getLogger(__name__)
 
+from fastapi import File, UploadFile, Form
+from cloudinary_config import upload_image
+
 @router.post("/", response_model=MemoryResponse)
 def create_memory(
-    memory: MemoryCreate,
+    title: str = Form(...),
+    note: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    image_url: Optional[str] = Form(None),
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
     try:
-        db_memory = models.Memory(**memory.dict(), owner_id=current_user.id)
+        final_image_url = image_url
+        
+        if image and image.filename:
+            logger.info(f"Uploading image to Cloudinary: {image.filename}")
+            uploaded_url = upload_image(image.file)
+            if uploaded_url:
+                final_image_url = uploaded_url
+            else:
+                logger.error("Cloudinary upload failed")
+        
+        db_memory = models.Memory(
+            title=title,
+            note=note,
+            image_url=final_image_url,
+            owner_id=current_user.id
+        )
         db.add(db_memory)
         db.commit()
         db.refresh(db_memory)
