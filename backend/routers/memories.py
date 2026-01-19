@@ -15,11 +15,18 @@ class MemoryCreate(BaseModel):
     note: Optional[str] = None
     image_url: Optional[str] = None
 
+class MemoryImageResponse(BaseModel):
+    id: int
+    url: str
+    
+    class Config:
+        orm_mode = True
+
 class MemoryResponse(BaseModel):
     id: int
     title: str
     note: Optional[str]
-    image_url: Optional[str]
+    images: List[MemoryImageResponse] = []
     created_at: datetime
     
     class Config:
@@ -37,33 +44,45 @@ from cloudinary_config import upload_image
 def create_memory(
     title: str = Form(...),
     note: Optional[str] = Form(None),
-    image: Optional[UploadFile] = File(None),
-    image_url: Optional[str] = Form(None),
+    images: List[UploadFile] = File(None),
+    image_urls: Optional[str] = Form(None), # Comma separated URLs if any
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
     try:
-        final_image_url = image_url
-        
-        if image and image.filename:
-            logger.info(f"Uploading image to Cloudinary: {image.filename}")
-            uploaded_url, cloudinary_error = upload_image(image.file)
-            if uploaded_url:
-                final_image_url = uploaded_url
-            else:
-                logger.error(f"Cloudinary upload failed: {cloudinary_error}")
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Cloudinary upload failed: {cloudinary_error}. Please check Render environment variables."
-                )
-        
         db_memory = models.Memory(
             title=title,
             note=note,
-            image_url=final_image_url,
             owner_id=current_user.id
         )
         db.add(db_memory)
+        db.commit()
+        db.refresh(db_memory)
+
+        final_images = []
+        
+        # Handle uploaded files
+        if images:
+            for image in images:
+                if image.filename:
+                    logger.info(f"Uploading image to Cloudinary: {image.filename}")
+                    uploaded_url, cloudinary_error = upload_image(image.file)
+                    if uploaded_url:
+                        db_image = models.MemoryImage(url=uploaded_url, memory_id=db_memory.id)
+                        db.add(db_image)
+                        final_images.append(db_image)
+                    else:
+                        logger.error(f"Cloudinary upload failed: {cloudinary_error}")
+                        # Optionally we could fail the whole request or just skip
+        
+        # Handle image URLs (if user provided them via the old URL input)
+        if image_urls:
+            urls = [u.strip() for u in image_urls.split(",") if u.strip()]
+            for url in urls:
+                db_image = models.MemoryImage(url=url, memory_id=db_memory.id)
+                db.add(db_image)
+                final_images.append(db_image)
+        
         db.commit()
         db.refresh(db_memory)
         return db_memory

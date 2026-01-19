@@ -18,8 +18,17 @@ class Memory(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, index=True)
     note = Column(Text, nullable=True)
-    image_url = Column(String, nullable=True) # URL or Base64 string for MVP
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="memories")
+    images = relationship("MemoryImage", back_populates="memory", cascade="all, delete-orphan")
+
+class MemoryImage(Base):
+    __tablename__ = "memory_images"
+
+    id = Column(Integer, primary_key=True, index=True)
+    url = Column(String)
+    memory_id = Column(Integer, ForeignKey("memories.id"))
+
+    memory = relationship("Memory", back_populates="images")

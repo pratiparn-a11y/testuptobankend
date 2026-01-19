@@ -3,11 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
 
+interface MemoryImage {
+    id: number;
+    url: string;
+}
+
 interface Memory {
     id: number;
     title: string;
     note: string;
-    image_url: string;
+    images: MemoryImage[];
     created_at: string;
 }
 
@@ -17,8 +22,8 @@ const Dashboard = () => {
     const [newTitle, setNewTitle] = useState('');
     const [newNote, setNewNote] = useState('');
     const [imageUrl, setImageUrl] = useState('');
-    const [imageFile, setImageFile] = useState<File | null>(null);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [imageFiles, setImageFiles] = useState<File[]>([]);
+    const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const navigate = useNavigate();
@@ -45,17 +50,23 @@ const Dashboard = () => {
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files ? e.target.files[0] : null;
-        if (file) {
-            setImageFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result as string);
-            };
-            reader.readAsDataURL(file);
+        const files = e.target.files ? Array.from(e.target.files) : [];
+        if (files.length > 0) {
+            setImageFiles(files);
+            const newPreviews: string[] = [];
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    newPreviews.push(reader.result as string);
+                    if (newPreviews.length === files.length) {
+                        setImagePreviews(newPreviews);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
         } else {
-            setImageFile(null);
-            setImagePreview(null);
+            setImageFiles([]);
+            setImagePreviews([]);
         }
     };
 
@@ -66,11 +77,13 @@ const Dashboard = () => {
             const formData = new FormData();
             formData.append('title', newTitle);
             formData.append('note', newNote || '');
-            if (imageFile) {
-                formData.append('image', imageFile);
-            }
+
+            imageFiles.forEach(file => {
+                formData.append('images', file);
+            });
+
             if (imageUrl) {
-                formData.append('image_url', imageUrl);
+                formData.append('image_urls', imageUrl);
             }
 
             await api.post('/memories/', formData, {
@@ -82,8 +95,8 @@ const Dashboard = () => {
             setNewTitle('');
             setNewNote('');
             setImageUrl('');
-            setImageFile(null);
-            setImagePreview(null);
+            setImageFiles([]);
+            setImagePreviews([]);
             setIsModalOpen(false);
             fetchMemories();
         } catch (error) {
@@ -192,21 +205,28 @@ const Dashboard = () => {
                                 key={memory.id}
                                 className="glass rounded-3xl overflow-hidden break-inside-avoid hover:shadow-2xl hover:shadow-pink-500/20 transition-all duration-500 group hover:-translate-y-1"
                             >
-                                {memory.image_url && (
-                                    <div className="relative aspect-auto max-h-[400px] overflow-hidden">
-                                        <img
-                                            src={memory.image_url}
-                                            alt={memory.title}
-                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                                        />
-                                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                {memory.images && memory.images.length > 0 && (
+                                    <div className="relative overflow-hidden">
+                                        {/* Simple Image Grid for multiple photos */}
+                                        <div className={`grid gap-1 ${memory.images.length === 1 ? 'grid-cols-1' : memory.images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                                            {memory.images.slice(0, 4).map((img, idx) => (
+                                                <div key={img.id} className={`relative overflow-hidden ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:font-bold' : ''}`}>
+                                                    <img
+                                                        src={img.url}
+                                                        alt={`${memory.title} ${idx}`}
+                                                        className="w-full h-full object-cover aspect-square transition-transform duration-700 group-hover:scale-105"
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                                         <button
                                             onClick={() => handleDelete(memory.id)}
-                                            className="absolute bottom-4 right-4 text-white hover:text-red-400 bg-black/40 p-3 rounded-full backdrop-blur-sm transition opacity-0 group-hover:opacity-100 hover:bg-red-500/20"
+                                            className="absolute bottom-4 right-4 text-white hover:text-red-400 bg-black/40 p-3 rounded-full backdrop-blur-sm transition opacity-0 group-hover:opacity-100 hover:bg-red-500/20 z-10"
                                         >
                                             <Trash2 className="h-5 w-5" />
                                         </button>
-                                        <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                             <Heart className="h-6 w-6 text-pink-400 drop-shadow-lg" fill="currentColor" />
                                         </div>
                                     </div>
@@ -232,7 +252,7 @@ const Dashboard = () => {
                                                 })}
                                             </span>
                                         </div>
-                                        {!memory.image_url && (
+                                        {(!memory.images || memory.images.length === 0) && (
                                             <button
                                                 onClick={() => handleDelete(memory.id)}
                                                 className="text-pink-300/40 hover:text-red-400 p-2 rounded-full transition hover:bg-white/5"
@@ -303,27 +323,33 @@ const Dashboard = () => {
                                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
                                             onChange={handleFileChange}
                                             accept="image/*"
+                                            multiple
                                         />
                                         <div className="flex flex-col items-center gap-2 text-pink-200/40 group-hover:text-pink-300 transition-colors w-full h-full">
-                                            {imagePreview ? (
-                                                <div className="relative w-full h-32">
-                                                    <img
-                                                        src={imagePreview}
-                                                        alt="Preview"
-                                                        className="w-full h-full object-cover rounded-xl shadow-lg border border-pink-300/20"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/20 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                        <Sparkles className="text-white h-6 w-6 animate-pulse" />
+                                            {imagePreviews.length > 0 ? (
+                                                <div className="w-full flex flex-col items-center">
+                                                    <div className="grid grid-cols-3 gap-2 w-full max-h-32 overflow-y-auto p-1">
+                                                        {imagePreviews.map((prev, idx) => (
+                                                            <div key={idx} className="relative aspect-square">
+                                                                <img
+                                                                    src={prev}
+                                                                    alt={`Preview ${idx}`}
+                                                                    className="w-full h-full object-cover rounded-lg border border-pink-300/20"
+                                                                />
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                    <p className="text-xs text-pink-200 mt-2 font-medium truncate px-2">{imageFile?.name}</p>
+                                                    <div className="mt-2 text-pink-200 font-medium text-xs">
+                                                        เลือกแล้ว {imageFiles.length} รูป
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <>
                                                     <div className="w-12 h-12 rounded-full bg-pink-500/10 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
                                                         <ImageIcon className="h-6 w-6 text-pink-400" />
                                                     </div>
-                                                    <span className="text-sm font-medium">เลือกรูปภาพจากเครื่องของคุณ</span>
-                                                    <p className="text-[10px] opacity-50">คลิกเพื่อเปิดโฟลเดอร์</p>
+                                                    <span className="text-sm font-medium">เลือกรูปภาพได้หลายรูป</span>
+                                                    <p className="text-[10px] opacity-50">คลิกเพื่อเลือกไฟล์รูปภาพ</p>
                                                 </>
                                             )}
                                         </div>
