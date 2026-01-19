@@ -526,15 +526,15 @@ const Dashboard = () => {
                         <>
                             <button
                                 onClick={handlePrevImage}
-                                className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] group-hover/lightbox:translate-x-0 -translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
+                                className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 bg-white/20 md:bg-white/10 hover:bg-white/30 text-white p-3 md:p-4 rounded-full backdrop-blur-md transition-all z-[110] opacity-100 md:opacity-0 md:group-hover/lightbox:opacity-100 md:-translate-x-12 md:group-hover/lightbox:translate-x-0"
                             >
-                                <ChevronLeft className="h-8 w-8" />
+                                <ChevronLeft className="h-6 w-6 md:h-8 md:w-8" />
                             </button>
                             <button
                                 onClick={handleNextImage}
-                                className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] group-hover/lightbox:translate-x-0 translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
+                                className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 bg-white/20 md:bg-white/10 hover:bg-white/30 text-white p-3 md:p-4 rounded-full backdrop-blur-md transition-all z-[110] opacity-100 md:opacity-0 md:group-hover/lightbox:opacity-100 md:translate-x-12 md:group-hover/lightbox:translate-x-0"
                             >
-                                <ChevronRight className="h-8 w-8" />
+                                <ChevronRight className="h-6 w-6 md:h-8 md:w-8" />
                             </button>
                         </>
                     )}
