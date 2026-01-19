@@ -20,7 +20,7 @@ class MemoryImageResponse(BaseModel):
     url: str
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class MemoryResponse(BaseModel):
     id: int
@@ -30,7 +30,7 @@ class MemoryResponse(BaseModel):
     created_at: datetime
     
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 import logging
 import traceback
