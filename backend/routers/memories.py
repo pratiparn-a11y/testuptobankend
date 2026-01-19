@@ -91,6 +91,8 @@ def create_memory(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+from sqlalchemy.orm import Session, joinedload
+
 @router.get("/", response_model=List[MemoryResponse])
 def get_memories(
     skip: int = 0, 
@@ -98,7 +100,7 @@ def get_memories(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    memories = db.query(models.Memory).filter(models.Memory.owner_id == current_user.id).offset(skip).limit(limit).all()
+    memories = db.query(models.Memory).options(joinedload(models.Memory.images)).filter(models.Memory.owner_id == current_user.id).offset(skip).limit(limit).all()
     return memories
 
 @router.delete("/{memory_id}")
