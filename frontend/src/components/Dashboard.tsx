@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download, Pencil, Lock } from 'lucide-react';
 
 interface MemoryImage {
     id: number;
@@ -28,8 +28,24 @@ const Dashboard = () => {
     const [submitting, setSubmitting] = useState(false);
     const [username, setUsername] = useState('');
     const [lightboxData, setLightboxData] = useState<{ images: MemoryImage[], index: number } | null>(null);
+    const [viewAllMemory, setViewAllMemory] = useState<Memory | null>(null);
     const [isDeletingImage, setIsDeletingImage] = useState<number | null>(null);
+    const [editMemory, setEditMemory] = useState<Memory | null>(null);
+    const [isDetailsUnlocked, setIsDetailsUnlocked] = useState(false);
+    const scrollRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
+
+    // Scroll to initial index when lightbox opens
+    useEffect(() => {
+        if (lightboxData && scrollRef.current) {
+            const container = scrollRef.current;
+            // Use requestAnimationFrame to ensure the container has rendered and has width
+            requestAnimationFrame(() => {
+                const targetX = lightboxData.index * container.clientWidth;
+                container.scrollTo({ left: targetX, behavior: 'auto' });
+            });
+        }
+    }, [lightboxData?.images.length]); // Re-run if images change or lightbox opens
 
     useEffect(() => {
         fetchUserProfile();
@@ -99,11 +115,15 @@ const Dashboard = () => {
                 formData.append('image_urls', imageUrl);
             }
 
-            await api.post('/memories/', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
-            });
+            if (editMemory) {
+                await api.put(`/memories/${editMemory.id}`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+            } else {
+                await api.post('/memories/', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                });
+            }
 
             setNewTitle('');
             setNewNote('');
@@ -111,12 +131,31 @@ const Dashboard = () => {
             setImageFiles([]);
             setImagePreviews([]);
             setIsModalOpen(false);
+            setEditMemory(null);
             fetchMemories();
         } catch (error) {
-            console.error('Error adding memory:', error);
-            alert('เพิ่มความทรงจำไม่สำเร็จ 💔');
+            console.error('Error saving memory:', error);
+            alert('บันทึกความทรงจำไม่สำเร็จ 💔');
         } finally {
             setSubmitting(false);
+        }
+    };
+
+    const handleEditClick = (e: React.MouseEvent, memory: Memory) => {
+        e.stopPropagation();
+        setEditMemory(memory);
+        setNewTitle(memory.title);
+        setNewNote(memory.note || '');
+        setIsDetailsUnlocked(false);
+        setIsModalOpen(true);
+    };
+
+    const handleUnlockDetails = () => {
+        const pin = window.prompt('กรุณาใส่รหัสยืนยันเพื่อแก้ไขข้อมูล (หากไม่ทราบกรุณาติดต่อผู้พัฒนา) 🤫');
+        if (pin === '0411') {
+            setIsDetailsUnlocked(true);
+        } else if (pin !== null) {
+            alert('รหัส PIN ไม่ถูกต้อง! ไม่สามารถแก้ไขข้อมูลได้ ❌');
         }
     };
 
@@ -138,7 +177,7 @@ const Dashboard = () => {
     };
 
     const handleDeleteImage = async (e: React.MouseEvent, imageId: number) => {
-        e.stopPropagation(); // Don't trigger lightbox
+        e.stopPropagation(); // Don't trigger lightbox/overview
         const pin = window.prompt('กรุณาใส่รหัสยืนยันเพื่อลบรูปภาพนี้ (หากไม่ทราบกรุณาติดต่อผู้พัฒนา) 🤫');
         if (pin === null) return;
         if (pin !== '1104') {
@@ -150,10 +189,24 @@ const Dashboard = () => {
         setIsDeletingImage(imageId);
         try {
             await api.delete(`/memories/images/${imageId}`);
-            // If deleting the currently viewed image in lightbox, close it
-            if (lightboxData && lightboxData.images[lightboxData.index].id === imageId) {
-                setLightboxData(null);
+
+            // UI Update Logic
+            if (lightboxData) {
+                const updatedImages = lightboxData.images.filter(img => img.id !== imageId);
+                if (updatedImages.length === 0) {
+                    setLightboxData(null);
+                } else {
+                    // Stay on current index or move back if it was the last one
+                    const newIndex = Math.min(lightboxData.index, updatedImages.length - 1);
+                    setLightboxData({ images: updatedImages, index: newIndex });
+                }
             }
+
+            if (viewAllMemory) {
+                const updatedImages = viewAllMemory.images.filter(img => img.id !== imageId);
+                setViewAllMemory({ ...viewAllMemory, images: updatedImages });
+            }
+
             fetchMemories();
         } catch (error) {
             console.error('Error deleting image:', error);
@@ -164,16 +217,25 @@ const Dashboard = () => {
 
     const handleNextImage = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!lightboxData) return;
-        const newIndex = (lightboxData.index + 1) % lightboxData.images.length;
-        setLightboxData({ ...lightboxData, index: newIndex });
+        if (!scrollRef.current) return;
+        const container = scrollRef.current;
+        container.scrollBy({ left: container.clientWidth, behavior: 'smooth' });
     };
 
     const handlePrevImage = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!lightboxData) return;
-        const newIndex = (lightboxData.index - 1 + lightboxData.images.length) % lightboxData.images.length;
-        setLightboxData({ ...lightboxData, index: newIndex });
+        if (!scrollRef.current) return;
+        const container = scrollRef.current;
+        container.scrollBy({ left: -container.clientWidth, behavior: 'smooth' });
+    };
+
+    const handleScroll = () => {
+        if (!scrollRef.current || !lightboxData) return;
+        const container = scrollRef.current;
+        const index = Math.round(container.scrollLeft / container.clientWidth);
+        if (index !== lightboxData.index && index >= 0 && index < lightboxData.images.length) {
+            setLightboxData({ ...lightboxData, index });
+        }
     };
 
     const handleDownloadImage = async (e: React.MouseEvent, url: string) => {
@@ -299,8 +361,15 @@ const Dashboard = () => {
                                             {memory.images.slice(0, 4).map((img, idx) => (
                                                 <div
                                                     key={img.id}
-                                                    className={`relative overflow-hidden cursor-zoom-in group/img ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:font-bold after:z-10' : ''}`}
-                                                    onClick={() => setLightboxData({ images: memory.images, index: idx })}
+                                                    className={`relative overflow-hidden cursor-zoom-in group/img ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:text-2xl after:font-bold after:z-10 hover:after:bg-black/40 after:transition-all' : ''}`}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (memory.images.length > 4 && idx === 3) {
+                                                            setViewAllMemory(memory);
+                                                        } else {
+                                                            setLightboxData({ images: memory.images, index: idx });
+                                                        }
+                                                    }}
                                                 >
                                                     <img
                                                         src={img.url}
@@ -319,18 +388,28 @@ const Dashboard = () => {
                                             ))}
                                         </div>
                                         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover/images:opacity-100 transition-opacity duration-300 pointer-events-none" />
-                                        <button
-                                            onClick={() => handleDelete(memory.id)}
-                                            className="absolute bottom-4 right-4 text-white hover:text-red-400 bg-black/60 p-3.5 rounded-full backdrop-blur-md transition opacity-100 md:opacity-0 md:group-hover/images:opacity-100 hover:bg-red-500/20 z-20 shadow-xl border border-white/10"
-                                        >
-                                            <Trash2 className="h-5 w-5" />
-                                        </button>
+                                        <div className="absolute bottom-4 right-4 flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover/images:opacity-100 transition duration-300 z-20">
+                                            <button
+                                                onClick={(e) => handleEditClick(e, memory)}
+                                                className="text-white hover:text-pink-400 bg-black/60 p-3.5 rounded-full backdrop-blur-md transition hover:bg-pink-500/20 shadow-xl border border-white/10"
+                                                title="แก้ไขความทรงจำ"
+                                            >
+                                                <Pencil className="h-5 w-5" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(memory.id)}
+                                                className="text-white hover:text-red-400 bg-black/60 p-3.5 rounded-full backdrop-blur-md transition hover:bg-red-500/20 shadow-xl border border-white/10"
+                                                title="ลบความทรงจำ"
+                                            >
+                                                <Trash2 className="h-5 w-5" />
+                                            </button>
+                                        </div>
                                         <div className="absolute top-4 left-4 opacity-0 group-hover/images:opacity-100 transition-opacity z-10">
                                             <Heart className="h-6 w-6 text-pink-400 drop-shadow-lg" fill="currentColor" />
                                         </div>
                                     </div>
                                 )}
-                                <div className="p-6">
+                                <div className="p-6 cursor-pointer" onClick={() => setViewAllMemory(memory)}>
                                     <h3 className="text-xl font-semibold mb-2 text-pink-100 leading-tight flex items-center gap-2">
                                         <Heart className="h-4 w-4 text-pink-400 flex-shrink-0" fill="currentColor" />
                                         {memory.title}
@@ -351,14 +430,20 @@ const Dashboard = () => {
                                                 })}
                                             </span>
                                         </div>
-                                        {(!memory.images || memory.images.length === 0) && (
+                                        <div className="flex items-center gap-2">
                                             <button
-                                                onClick={() => handleDelete(memory.id)}
+                                                onClick={(e) => { e.stopPropagation(); handleEditClick(e, memory); }}
+                                                className="text-pink-300/40 hover:text-pink-400 p-2 rounded-full transition hover:bg-white/5"
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(memory.id); }}
                                                 className="text-pink-300/40 hover:text-red-400 p-2 rounded-full transition hover:bg-white/5"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -376,37 +461,75 @@ const Dashboard = () => {
                     />
                     <div className="glass w-full max-w-lg rounded-3xl p-8 relative z-10 border border-pink-300/20">
                         <button
-                            onClick={() => setIsModalOpen(false)}
+                            onClick={() => {
+                                setIsModalOpen(false);
+                                setEditMemory(null);
+                                setNewTitle('');
+                                setNewNote('');
+                                setImageFiles([]);
+                                setImagePreviews([]);
+                                setIsDetailsUnlocked(false);
+                            }}
                             className="absolute top-4 right-4 text-pink-200/40 hover:text-white transition-colors p-2"
                         >
                             <X className="h-6 w-6" />
                         </button>
 
                         <h3 className="text-2xl font-bold mb-8 flex items-center gap-3 romantic-text">
-                            <Heart className="h-6 w-6 text-pink-400" fill="currentColor" />
-                            เพิ่มความทรงจำใหม่
+                            {editMemory ? <Pencil className="h-6 w-6 text-pink-400" /> : <Heart className="h-6 w-6 text-pink-400" fill="currentColor" />}
+                            {editMemory ? 'แก้ไขความทรงจำ' : 'เพิ่มความทรงจำใหม่'}
                         </h3>
 
                         <form onSubmit={handleAddMemory} className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-pink-200/80 ml-1">💕 ชื่อความทรงจำ</label>
-                                <input
-                                    type="text"
-                                    placeholder="ตั้งชื่อให้ช่วงเวลานี้..."
-                                    className="glass-input w-full px-4 py-4"
-                                    value={newTitle}
-                                    onChange={(e) => setNewTitle(e.target.value)}
-                                    required
-                                />
+                            <div className="space-y-2 relative group">
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-sm font-medium text-pink-200/80">💕 ชื่อความทรงจำ</label>
+                                    {editMemory && !isDetailsUnlocked && (
+                                        <button
+                                            type="button"
+                                            onClick={handleUnlockDetails}
+                                            className="text-[10px] font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 bg-pink-500/10 px-2 py-1 rounded-full transition-colors"
+                                        >
+                                            <Lock className="h-2.5 w-2.5" />
+                                            แก้ไข
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        placeholder="ตั้งชื่อให้ช่วงเวลานี้..."
+                                        className={`glass-input w-full px-4 py-4 transition-all ${editMemory && !isDetailsUnlocked ? 'opacity-40 cursor-pointer hover:bg-white/5' : ''}`}
+                                        value={newTitle}
+                                        onChange={(e) => setNewTitle(e.target.value)}
+                                        onClick={() => { if (editMemory && !isDetailsUnlocked) handleUnlockDetails(); }}
+                                        readOnly={editMemory !== null && !isDetailsUnlocked}
+                                        required
+                                    />
+                                </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-pink-200/80 ml-1">💭 บันทึกความรู้สึก</label>
+                            <div className="space-y-2 relative group">
+                                <div className="flex items-center justify-between ml-1">
+                                    <label className="text-sm font-medium text-pink-200/80">💭 บันทึกความรู้สึก</label>
+                                    {editMemory && !isDetailsUnlocked && (
+                                        <button
+                                            type="button"
+                                            onClick={handleUnlockDetails}
+                                            className="text-[10px] font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 bg-pink-500/10 px-2 py-1 rounded-full transition-colors"
+                                        >
+                                            <Lock className="h-2.5 w-2.5" />
+                                            แก้ไข
+                                        </button>
+                                    )}
+                                </div>
                                 <textarea
                                     placeholder="เขียนบรรยายความรู้สึกดีๆ..."
-                                    className="glass-input w-full px-4 py-4 min-h-[120px] resize-none"
+                                    className={`glass-input w-full px-4 py-4 min-h-[120px] resize-none transition-all ${editMemory && !isDetailsUnlocked ? 'opacity-40 cursor-pointer hover:bg-white/5' : ''}`}
                                     value={newNote}
                                     onChange={(e) => setNewNote(e.target.value)}
+                                    onClick={() => { if (editMemory && !isDetailsUnlocked) handleUnlockDetails(); }}
+                                    readOnly={editMemory !== null && !isDetailsUnlocked}
                                 />
                             </div>
 
@@ -485,9 +608,9 @@ const Dashboard = () => {
                                     <Loader2 className="animate-spin h-6 w-6" />
                                 ) : (
                                     <>
-                                        <Heart className="h-5 w-5" fill="currentColor" />
-                                        บันทึกความทรงจำ
-                                        <Sparkles className="h-5 w-5" />
+                                        {editMemory ? <Sparkles className="h-5 w-5" /> : <Heart className="h-5 w-5" fill="currentColor" />}
+                                        {editMemory ? 'อัปเดตความทรงจำ' : 'บันทึกความทรงจำ'}
+                                        <Heart className="h-4 w-4" fill="currentColor" />
                                     </>
                                 )}
                             </button>
@@ -495,6 +618,66 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+            {/* Overview / View All Modal */}
+            {viewAllMemory && (
+                <div className="fixed inset-0 z-[80] flex items-center justify-center px-4 animate-fade-in">
+                    <div
+                        className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        onClick={() => setViewAllMemory(null)}
+                    />
+                    <div className="glass w-full max-w-4xl max-h-[85vh] rounded-3xl p-6 md:p-8 relative z-10 border border-pink-300/20 flex flex-col animate-scale-up">
+                        <button
+                            onClick={() => setViewAllMemory(null)}
+                            className="absolute top-4 right-4 text-pink-200/40 hover:text-white transition-colors p-2 z-20"
+                        >
+                            <X className="h-8 w-8" />
+                        </button>
+
+                        <div className="flex items-center gap-4 mb-6">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/20">
+                                <ImageIcon className="text-white h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold text-pink-100 romantic-text">{viewAllMemory.title}</h3>
+                                <p className="text-pink-200/50 text-sm">รูปความทรงจำทั้งหมด ({viewAllMemory.images.length}) ✨</p>
+                            </div>
+                        </div>
+
+                        {viewAllMemory.note && (
+                            <p className="text-pink-200/70 text-sm mb-6 bg-white/5 p-4 rounded-2xl border border-pink-300/5 italic">
+                                "{viewAllMemory.note}"
+                            </p>
+                        )}
+
+                        <div className="flex-1 overflow-y-auto pr-2 flex flex-wrap justify-center gap-y-2 gap-x-0 pb-16 no-scrollbar min-h-0 pt-8 px-4">
+                            {viewAllMemory.images.map((img, idx) => (
+                                <div
+                                    key={img.id}
+                                    className="relative cursor-zoom-in rounded-xl overflow-hidden aspect-[4/5] w-32 sm:w-40 md:w-48 border-4 border-white shadow-2xl bg-black/20 transition-all hover:z-50 hover:scale-110 active:scale-95 group/photo"
+                                    style={{
+                                        transform: `rotate(${((idx % 5) - 2) * 5}deg) translateY(${idx % 2 === 0 ? '-10px' : '10px'})`,
+                                        marginLeft: idx > 0 ? (window.innerWidth < 640 ? '-40px' : '-60px') : '0',
+                                        zIndex: idx,
+                                    }}
+                                    onClick={() => setLightboxData({ images: viewAllMemory.images, index: idx })}
+                                >
+                                    <div className="absolute inset-0 bg-black/5 group-hover/photo:opacity-0 transition-opacity" />
+                                    <img
+                                        src={img.url}
+                                        alt={`Overview ${idx}`}
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="mt-6 flex justify-center text-xs text-pink-200/30">
+                            คลิกที่รูปเพื่อดูขนาดเต็ม • ปัดเลื่อนในโหมดเต็มหน้าจอได้
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Lightbox / Full Screen View with Slider */}
             {lightboxData && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-fade-in group/lightbox">
@@ -506,6 +689,14 @@ const Dashboard = () => {
                     {/* Controls */}
                     <div className="absolute top-6 right-6 flex items-center gap-4 z-[110]">
                         <button
+                            onClick={(e) => handleDeleteImage(e, lightboxData.images[lightboxData.index].id)}
+                            disabled={isDeletingImage === lightboxData.images[lightboxData.index].id}
+                            className="bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
+                            title="ลบรูปภาพนี้"
+                        >
+                            {isDeletingImage === lightboxData.images[lightboxData.index].id ? <Loader2 className="h-6 w-6 animate-spin" /> : <Trash2 className="h-6 w-6" />}
+                        </button>
+                        <button
                             onClick={(e) => handleDownloadImage(e, lightboxData.images[lightboxData.index].url)}
                             className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
                             title="ดาวน์โหลดรูปภาพ"
@@ -515,40 +706,50 @@ const Dashboard = () => {
                         </button>
                         <button
                             onClick={() => setLightboxData(null)}
-                            className="bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full backdrop-blur-md transition-all"
+                            className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all"
                         >
                             <X className="h-6 w-6" />
                         </button>
                     </div>
 
-                    {/* Navigation Arrows */}
+                    {/* Navigation Arrows - Desktop Only and Hidden if overlapping */}
                     {lightboxData.images.length > 1 && (
                         <>
                             <button
                                 onClick={handlePrevImage}
-                                className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 bg-white/20 md:bg-white/10 hover:bg-white/30 text-white p-3 md:p-4 rounded-full backdrop-blur-md transition-all z-[110] opacity-100 md:opacity-0 md:group-hover/lightbox:opacity-100 md:-translate-x-12 md:group-hover/lightbox:translate-x-0"
+                                className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] hidden md:flex items-center justify-center group-hover/lightbox:translate-x-0 -translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
                             >
-                                <ChevronLeft className="h-6 w-6 md:h-8 md:w-8" />
+                                <ChevronLeft className="h-8 w-8" />
                             </button>
                             <button
                                 onClick={handleNextImage}
-                                className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 bg-white/20 md:bg-white/10 hover:bg-white/30 text-white p-3 md:p-4 rounded-full backdrop-blur-md transition-all z-[110] opacity-100 md:opacity-0 md:group-hover/lightbox:opacity-100 md:translate-x-12 md:group-hover/lightbox:translate-x-0"
+                                className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] hidden md:flex items-center justify-center group-hover/lightbox:translate-x-0 translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
                             >
-                                <ChevronRight className="h-6 w-6 md:h-8 md:w-8" />
+                                <ChevronRight className="h-8 w-8" />
                             </button>
                         </>
                     )}
 
-                    {/* Main Image Container */}
-                    <div className="relative max-w-full max-h-full flex flex-col items-center justify-center animate-scale-up z-10 select-none">
-                        <img
-                            src={lightboxData.images[lightboxData.index].url}
-                            alt={`Memories View ${lightboxData.index}`}
-                            className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
-                        />
+                    {/* Main Image Container with Swiping (Scroll Snap) */}
+                    <div className="relative w-full h-full flex flex-col items-center justify-center z-10 select-none overflow-hidden mt-10 md:mt-0">
+                        <div
+                            ref={scrollRef}
+                            onScroll={handleScroll}
+                            className="w-full flex overflow-x-auto snap-x snap-mandatory no-scrollbar scroll-smooth"
+                        >
+                            {lightboxData.images.map((img, i) => (
+                                <div key={i} className="flex-none w-full h-full flex items-center justify-center snap-center p-4">
+                                    <img
+                                        src={img.url}
+                                        alt={`Memories View ${i}`}
+                                        className="max-w-full max-h-[70vh] md:max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+                                    />
+                                </div>
+                            ))}
+                        </div>
 
                         {/* Image Counter & Indicator */}
-                        <div className="mt-8 flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-2 mt-4">
                             <span className="text-white/60 text-sm font-medium">
                                 รูปที่ {lightboxData.index + 1} จาก {lightboxData.images.length}
                             </span>

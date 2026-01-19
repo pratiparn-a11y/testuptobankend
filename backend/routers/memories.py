@@ -134,3 +134,42 @@ def delete_memory_image(
     db.delete(image)
     db.commit()
     return {"message": "Image deleted successfully"}
+
+@router.put("/{memory_id}", response_model=MemoryResponse)
+def update_memory(
+    memory_id: int,
+    title: Optional[str] = Form(None),
+    note: Optional[str] = Form(None),
+    images: List[UploadFile] = File(None),
+    image_urls: Optional[str] = Form(None),
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    db_memory = db.query(models.Memory).filter(models.Memory.id == memory_id, models.Memory.owner_id == current_user.id).first()
+    if not db_memory:
+        raise HTTPException(status_code=404, detail="Memory not found")
+    
+    if title is not None:
+        db_memory.title = title
+    if note is not None:
+        db_memory.note = note
+    
+    # Handle new uploaded files
+    if images:
+        for image in images:
+            if image.filename:
+                uploaded_url, cloudinary_error = upload_image(image.file)
+                if uploaded_url:
+                    db_image = models.MemoryImage(url=uploaded_url, memory_id=db_memory.id)
+                    db.add(db_image)
+    
+    # Handle new image URLs
+    if image_urls:
+        urls = [u.strip() for u in image_urls.split(",") if u.strip()]
+        for url in urls:
+            db_image = models.MemoryImage(url=url, memory_id=db_memory.id)
+            db.add(db_image)
+            
+    db.commit()
+    db.refresh(db_memory)
+    return db_memory
