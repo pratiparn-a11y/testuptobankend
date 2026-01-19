@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon } from 'lucide-react';
+import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 
 interface MemoryImage {
     id: number;
@@ -26,11 +26,24 @@ const Dashboard = () => {
     const [imagePreviews, setImagePreviews] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [username, setUsername] = useState('');
+    const [lightboxData, setLightboxData] = useState<{ images: MemoryImage[], index: number } | null>(null);
+    const [isDeletingImage, setIsDeletingImage] = useState<number | null>(null);
     const navigate = useNavigate();
 
     useEffect(() => {
+        fetchUserProfile();
         fetchMemories();
     }, []);
+
+    const fetchUserProfile = async () => {
+        try {
+            const response = await api.get('/me');
+            setUsername(response.data.username);
+        } catch (error) {
+            console.error('Error fetching user profile:', error);
+        }
+    };
 
     const fetchMemories = async () => {
         try {
@@ -108,12 +121,78 @@ const Dashboard = () => {
     };
 
     const handleDelete = async (id: number) => {
-        if (!window.confirm('คุณต้องการลบความทรงจำนี้ใช่ไหม? 💔')) return;
+        const pin = window.prompt('กรุณาใส่รหัสยืนยันเพื่อลบความทรงจำนี้ (หากไม่ทราบกรุณาติดต่อผู้พัฒนา) 🤫');
+        if (pin === null) return;
+        if (pin !== '1104') {
+            alert('รหัส PIN ไม่ถูกต้อง! ไม่สามารถลบได้ ❌');
+            return;
+        }
+
+        if (!window.confirm('คุณต้องการลบความทรงจำนี้ใช่หรือไม่? 🥺')) return;
         try {
             await api.delete(`/memories/${id}`);
-            setMemories(memories.filter((m) => m.id !== id));
+            fetchMemories();
         } catch (error) {
             console.error('Error deleting memory:', error);
+        }
+    };
+
+    const handleDeleteImage = async (e: React.MouseEvent, imageId: number) => {
+        e.stopPropagation(); // Don't trigger lightbox
+        const pin = window.prompt('กรุณาใส่รหัสยืนยันเพื่อลบรูปภาพนี้ (หากไม่ทราบกรุณาติดต่อผู้พัฒนา) 🤫');
+        if (pin === null) return;
+        if (pin !== '1104') {
+            alert('รหัส PIN ไม่ถูกต้อง! ไม่สามารถลบได้ ❌');
+            return;
+        }
+
+        if (!window.confirm('คุณต้องการลบรูปภาพนี้ใช่หรือไม่? 🖼️')) return;
+        setIsDeletingImage(imageId);
+        try {
+            await api.delete(`/memories/images/${imageId}`);
+            // If deleting the currently viewed image in lightbox, close it
+            if (lightboxData && lightboxData.images[lightboxData.index].id === imageId) {
+                setLightboxData(null);
+            }
+            fetchMemories();
+        } catch (error) {
+            console.error('Error deleting image:', error);
+        } finally {
+            setIsDeletingImage(null);
+        }
+    };
+
+    const handleNextImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!lightboxData) return;
+        const newIndex = (lightboxData.index + 1) % lightboxData.images.length;
+        setLightboxData({ ...lightboxData, index: newIndex });
+    };
+
+    const handlePrevImage = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!lightboxData) return;
+        const newIndex = (lightboxData.index - 1 + lightboxData.images.length) % lightboxData.images.length;
+        setLightboxData({ ...lightboxData, index: newIndex });
+    };
+
+    const handleDownloadImage = async (e: React.MouseEvent, url: string) => {
+        e.stopPropagation();
+        try {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `memory-photo-${Date.now()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+        } catch (error) {
+            console.error('Error downloading image:', error);
+            // Fallback: Open in new tab
+            window.open(url, '_blank');
         }
     };
 
@@ -145,16 +224,24 @@ const Dashboard = () => {
                         </div>
                         <div className="hidden sm:block">
                             <h1 className="text-2xl font-bold romantic-text">Memory Keeper</h1>
-                            <p className="text-xs text-pink-200/50">เก็บความทรงจำแห่งรัก</p>
+                            <p className="text-xs text-pink-200/50">เก็บความทรงจำแห่งรัก {username && `ของ ${username}`}</p>
                         </div>
                     </div>
-                    <button
-                        onClick={handleLogout}
-                        className="flex items-center gap-2 text-pink-200/60 hover:text-red-400 transition-colors px-4 py-2 hover:bg-white/5 rounded-xl text-sm font-medium"
-                    >
-                        <span>ออกจากระบบ</span>
-                        <LogOut className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-4">
+                        {username && (
+                            <div className="hidden md:flex items-center gap-2 text-pink-100 bg-white/5 px-4 py-2 rounded-xl border border-pink-300/10">
+                                <Sparkles className="h-4 w-4 text-pink-400" />
+                                <span className="text-sm font-medium">{username}</span>
+                            </div>
+                        )}
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 text-pink-200/60 hover:text-red-400 transition-colors px-4 py-2 hover:bg-white/5 rounded-xl text-sm font-medium"
+                        >
+                            <span>ออกจากระบบ</span>
+                            <LogOut className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
             </nav>
 
@@ -206,27 +293,39 @@ const Dashboard = () => {
                                 className="glass rounded-3xl overflow-hidden break-inside-avoid hover:shadow-2xl hover:shadow-pink-500/20 transition-all duration-500 group hover:-translate-y-1"
                             >
                                 {memory.images && memory.images.length > 0 && (
-                                    <div className="relative overflow-hidden">
+                                    <div className="relative overflow-hidden group/images">
                                         {/* Simple Image Grid for multiple photos */}
-                                        <div className={`grid gap-1 ${memory.images.length === 1 ? 'grid-cols-1' : memory.images.length === 2 ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                                        <div className={`grid gap-1 ${memory.images.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
                                             {memory.images.slice(0, 4).map((img, idx) => (
-                                                <div key={img.id} className={`relative overflow-hidden ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:font-bold' : ''}`}>
+                                                <div
+                                                    key={img.id}
+                                                    className={`relative overflow-hidden cursor-zoom-in group/img ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:font-bold after:z-10' : ''}`}
+                                                    onClick={() => setLightboxData({ images: memory.images, index: idx })}
+                                                >
                                                     <img
                                                         src={img.url}
                                                         alt={`${memory.title} ${idx}`}
-                                                        className="w-full h-full object-cover aspect-square transition-transform duration-700 group-hover:scale-105"
+                                                        className="w-full h-full object-cover aspect-square transition-transform duration-700 group-hover/img:scale-110"
                                                     />
+                                                    {/* Delete single image button - Always visible on mobile, hover on desktop */}
+                                                    <button
+                                                        onClick={(e) => handleDeleteImage(e, img.id)}
+                                                        disabled={isDeletingImage === img.id}
+                                                        className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white hover:text-red-400 hover:bg-black/80 backdrop-blur-sm opacity-100 md:opacity-0 md:group-hover/img:opacity-100 transition-all z-20 shadow-lg"
+                                                    >
+                                                        {isDeletingImage === img.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
-                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                                        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover/images:opacity-100 transition-opacity duration-300 pointer-events-none" />
                                         <button
                                             onClick={() => handleDelete(memory.id)}
-                                            className="absolute bottom-4 right-4 text-white hover:text-red-400 bg-black/40 p-3 rounded-full backdrop-blur-sm transition opacity-0 group-hover:opacity-100 hover:bg-red-500/20 z-10"
+                                            className="absolute bottom-4 right-4 text-white hover:text-red-400 bg-black/60 p-3.5 rounded-full backdrop-blur-md transition opacity-100 md:opacity-0 md:group-hover/images:opacity-100 hover:bg-red-500/20 z-20 shadow-xl border border-white/10"
                                         >
                                             <Trash2 className="h-5 w-5" />
                                         </button>
-                                        <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <div className="absolute top-4 left-4 opacity-0 group-hover/images:opacity-100 transition-opacity z-10">
                                             <Heart className="h-6 w-6 text-pink-400 drop-shadow-lg" fill="currentColor" />
                                         </div>
                                     </div>
@@ -393,6 +492,77 @@ const Dashboard = () => {
                                 )}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Lightbox / Full Screen View with Slider */}
+            {lightboxData && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-fade-in group/lightbox">
+                    <div
+                        className="absolute inset-0 bg-black/95 backdrop-blur-2xl cursor-zoom-out"
+                        onClick={() => setLightboxData(null)}
+                    />
+
+                    {/* Controls */}
+                    <div className="absolute top-6 right-6 flex items-center gap-4 z-[110]">
+                        <button
+                            onClick={(e) => handleDownloadImage(e, lightboxData.images[lightboxData.index].url)}
+                            className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
+                            title="ดาวน์โหลดรูปภาพ"
+                        >
+                            <Download className="h-6 w-6" />
+                            <span className="hidden sm:inline text-sm font-medium">ดาวน์โหลด</span>
+                        </button>
+                        <button
+                            onClick={() => setLightboxData(null)}
+                            className="bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full backdrop-blur-md transition-all"
+                        >
+                            <X className="h-6 w-6" />
+                        </button>
+                    </div>
+
+                    {/* Navigation Arrows */}
+                    {lightboxData.images.length > 1 && (
+                        <>
+                            <button
+                                onClick={handlePrevImage}
+                                className="absolute left-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] group-hover/lightbox:translate-x-0 -translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
+                            >
+                                <ChevronLeft className="h-8 w-8" />
+                            </button>
+                            <button
+                                onClick={handleNextImage}
+                                className="absolute right-6 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white p-4 rounded-full backdrop-blur-md transition-all z-[110] group-hover/lightbox:translate-x-0 translate-x-12 opacity-0 group-hover/lightbox:opacity-100"
+                            >
+                                <ChevronRight className="h-8 w-8" />
+                            </button>
+                        </>
+                    )}
+
+                    {/* Main Image Container */}
+                    <div className="relative max-w-full max-h-full flex flex-col items-center justify-center animate-scale-up z-10 select-none">
+                        <img
+                            src={lightboxData.images[lightboxData.index].url}
+                            alt={`Memories View ${lightboxData.index}`}
+                            className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+                        />
+
+                        {/* Image Counter & Indicator */}
+                        <div className="mt-8 flex flex-col items-center gap-2">
+                            <span className="text-white/60 text-sm font-medium">
+                                รูปที่ {lightboxData.index + 1} จาก {lightboxData.images.length}
+                            </span>
+                            {lightboxData.images.length > 1 && (
+                                <div className="flex gap-1.5">
+                                    {lightboxData.images.map((_, i) => (
+                                        <div
+                                            key={i}
+                                            className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${i === lightboxData.index ? 'bg-pink-500 w-6' : 'bg-white/20'}`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

@@ -115,3 +115,22 @@ def delete_memory(
     db.delete(memory)
     db.commit()
     return {"message": "Memory deleted"}
+
+@router.delete("/images/{image_id}")
+def delete_memory_image(
+    image_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # Find the image and ensure it belongs to a memory owned by current_user
+    image = db.query(models.MemoryImage).join(models.Memory).filter(
+        models.MemoryImage.id == image_id,
+        models.Memory.owner_id == current_user.id
+    ).first()
+    
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found or access denied")
+    
+    db.delete(image)
+    db.commit()
+    return {"message": "Image deleted successfully"}

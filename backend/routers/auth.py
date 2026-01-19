@@ -50,3 +50,7 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+@router.get("/me")
+def get_current_user_profile(current_user: models.User = Depends(auth.get_current_user)):
+    return {"username": current_user.username, "id": current_user.id}
