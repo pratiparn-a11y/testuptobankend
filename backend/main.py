@@ -49,6 +49,10 @@ app.add_middleware(
 def read_root():
     return {"message": "Welcome to Memory Keeper API"}
 
+@app.get("/ping")
+def ping():
+    return {"status": "ok", "message": "Server is awake! 🚀"}
+
 from routers import auth, memories
 app.include_router(auth.router)
 app.include_router(memories.router)
