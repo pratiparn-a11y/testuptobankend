@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download, Pencil, Lock } from 'lucide-react';
+import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download, Pencil, Lock, Camera } from 'lucide-react';
 
 interface MemoryImage {
     id: number;
@@ -81,22 +81,23 @@ const Dashboard = () => {
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files ? Array.from(e.target.files) : [];
         if (files.length > 0) {
-            setImageFiles(files);
-            const newPreviews: string[] = [];
+            setImageFiles(prev => [...prev, ...files]);
+
             files.forEach(file => {
                 const reader = new FileReader();
                 reader.onloadend = () => {
-                    newPreviews.push(reader.result as string);
-                    if (newPreviews.length === files.length) {
-                        setImagePreviews(newPreviews);
-                    }
+                    setImagePreviews(prev => [...prev, reader.result as string]);
                 };
                 reader.readAsDataURL(file);
             });
-        } else {
-            setImageFiles([]);
-            setImagePreviews([]);
         }
+        // Reset input to allow re-selecting same photo if needed or triggered again
+        e.target.value = '';
+    };
+
+    const handleRemoveSelectedImage = (index: number) => {
+        setImageFiles(prev => prev.filter((_, i) => i !== index));
+        setImagePreviews(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleAddMemory = async (e: React.FormEvent) => {
@@ -459,7 +460,7 @@ const Dashboard = () => {
                         className="absolute inset-0 bg-black/60 backdrop-blur-md"
                         onClick={() => setIsModalOpen(false)}
                     />
-                    <div className="glass w-full max-w-lg rounded-3xl p-8 relative z-10 border border-pink-300/20">
+                    <div className="glass w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-3xl p-8 relative z-10 border border-pink-300/20 no-scrollbar">
                         <button
                             onClick={() => {
                                 setIsModalOpen(false);
@@ -534,69 +535,83 @@ const Dashboard = () => {
                             </div>
 
                             <div className="space-y-4">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
-                                        <ImageIcon className="h-4 w-4" />
-                                        รูปภาพจากเครื่อง
-                                    </label>
-                                    <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-4 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group min-h-[160px] flex items-center justify-center overflow-hidden">
-                                        <input
-                                            type="file"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                                            onChange={handleFileChange}
-                                            accept="image/*"
-                                            multiple
-                                        />
-                                        <div className="flex flex-col items-center gap-2 text-pink-200/40 group-hover:text-pink-300 transition-colors w-full h-full">
-                                            {imagePreviews.length > 0 ? (
-                                                <div className="w-full flex flex-col items-center">
-                                                    <div className="grid grid-cols-3 gap-2 w-full max-h-32 overflow-y-auto p-1">
-                                                        {imagePreviews.map((prev, idx) => (
-                                                            <div key={idx} className="relative aspect-square">
-                                                                <img
-                                                                    src={prev}
-                                                                    alt={`Preview ${idx}`}
-                                                                    className="w-full h-full object-cover rounded-lg border border-pink-300/20"
-                                                                />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                    <div className="mt-2 text-pink-200 font-medium text-xs">
-                                                        เลือกแล้ว {imageFiles.length} รูป
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <div className="w-12 h-12 rounded-full bg-pink-500/10 flex items-center justify-center mb-1 group-hover:scale-110 transition-transform">
-                                                        <ImageIcon className="h-6 w-6 text-pink-400" />
-                                                    </div>
-                                                    <span className="text-sm font-medium">เลือกรูปภาพได้หลายรูป</span>
-                                                    <p className="text-[10px] opacity-50">คลิกเพื่อเลือกไฟล์รูปภาพ</p>
-                                                </>
-                                            )}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
+                                            <ImageIcon className="h-4 w-4" />
+                                            เลือกรูปภาพ
+                                        </label>
+                                        <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-4 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group flex items-center justify-center overflow-hidden h-24">
+                                            <input
+                                                type="file"
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                                onChange={handleFileChange}
+                                                accept="image/*"
+                                                multiple
+                                            />
+                                            <div className="flex flex-col items-center gap-1 text-pink-200/40 group-hover:text-pink-300 transition-colors">
+                                                <ImageIcon className="h-5 w-5" />
+                                                <span className="text-[10px] font-medium">คลังภาพ/ไฟล์</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
+                                            <Camera className="h-4 w-4" />
+                                            ถ่ายรูปใหม่
+                                        </label>
+                                        <div className="relative border-2 border-dashed border-pink-300/20 rounded-2xl p-4 transition-colors hover:border-pink-500/50 hover:bg-white/5 text-center cursor-pointer group flex items-center justify-center overflow-hidden h-24">
+                                            <input
+                                                type="file"
+                                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                                onChange={handleFileChange}
+                                                accept="image/*"
+                                                capture="environment"
+                                            />
+                                            <div className="flex flex-col items-center gap-1 text-pink-200/40 group-hover:text-pink-300 transition-colors">
+                                                <Camera className="h-5 w-5" />
+                                                <span className="text-[10px] font-medium">เปิดกล้อง</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* <div className="relative flex items-center py-2">
-                                    <div className="flex-grow border-t border-pink-300/10"></div>
-                                    <span className="flex-shrink mx-4 text-xs text-pink-200/20">หรือ</span>
-                                    <div className="flex-grow border-t border-pink-300/10"></div>
-                                </div> */}
-
-                                {/* <div className="space-y-2">
-                                    <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
-                                        <Sparkles className="h-4 w-4" />
-                                        วางลิงก์รูปภาพ
-                                    </label>
-                                    <input
-                                        type="url"
-                                        placeholder="https://example.com/your-photo.jpg"
-                                        className="glass-input w-full px-4 py-4"
-                                        value={imageUrl}
-                                        onChange={(e) => setImageUrl(e.target.value)}
-                                    />
-                                </div> */}
+                                {imagePreviews.length > 0 && (
+                                    <div className="w-full flex flex-col items-center bg-white/5 p-4 rounded-2xl border border-pink-300/10 mb-4">
+                                        <div className="grid grid-cols-3 gap-2 w-full max-h-48 overflow-y-auto p-1">
+                                            {imagePreviews.map((prev, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className="relative aspect-square group/preview cursor-zoom-in"
+                                                    onClick={() => setLightboxData({
+                                                        images: imagePreviews.map((url, i) => ({ id: i, url })),
+                                                        index: idx
+                                                    })}
+                                                >
+                                                    <img
+                                                        src={prev}
+                                                        alt={`Preview ${idx}`}
+                                                        className="w-full h-full object-cover rounded-lg border border-pink-300/20"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            handleRemoveSelectedImage(idx);
+                                                        }}
+                                                        className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg opacity-100 sm:opacity-0 sm:group-hover/preview:opacity-100 transition-opacity z-30"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-2 text-pink-200 font-medium text-xs">
+                                            เลือกแล้ว {imageFiles.length} รูป
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <button
