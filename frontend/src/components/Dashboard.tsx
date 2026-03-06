@@ -578,13 +578,13 @@ const Dashboard = () => {
                                     </div>
                                 </div>
 
-                                <div className="relative flex items-center py-2">
+                                {/* <div className="relative flex items-center py-2">
                                     <div className="flex-grow border-t border-pink-300/10"></div>
                                     <span className="flex-shrink mx-4 text-xs text-pink-200/20">หรือ</span>
                                     <div className="flex-grow border-t border-pink-300/10"></div>
-                                </div>
+                                </div> */}
 
-                                <div className="space-y-2">
+                                {/* <div className="space-y-2">
                                     <label className="text-sm font-medium text-pink-200/80 ml-1 flex items-center gap-2">
                                         <Sparkles className="h-4 w-4" />
                                         วางลิงก์รูปภาพ
@@ -596,7 +596,7 @@ const Dashboard = () => {
                                         value={imageUrl}
                                         onChange={(e) => setImageUrl(e.target.value)}
                                     />
-                                </div>
+                                </div> */}
                             </div>
 
                             <button
