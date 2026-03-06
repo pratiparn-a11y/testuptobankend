@@ -13,3 +13,5 @@ dist/
 # Editor
 .vscode/
 .idea/
+.vercel
+.env*.local

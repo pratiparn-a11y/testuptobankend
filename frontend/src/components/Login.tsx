@@ -141,7 +141,7 @@ const Login = () => {
                         {loading ? (
                             <>
                                 <Loader2 className="animate-spin h-6 w-6" />
-                                <span>กำลังโหลด...⏳โปรดรอนะน้อง🐖</span>
+                                <span>กำลังโหลด⏳โปรดรอนะน้อง🐖</span>
                             </>
                         ) : (
                             <>
