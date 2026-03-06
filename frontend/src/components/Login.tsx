@@ -139,7 +139,10 @@ const Login = () => {
                         className="glass-button w-full py-4 rounded-xl text-lg flex items-center justify-center gap-3 disabled:opacity-60"
                     >
                         {loading ? (
-                            <Loader2 className="animate-spin h-6 w-6" />
+                            <>
+                                <Loader2 className="animate-spin h-6 w-6" />
+                                <span>กำลังโหลด...⏳โปรดรอนะน้อง🐖</span>
+                            </>
                         ) : (
                             <>
                                 <Heart className="h-5 w-5" fill="currentColor" />
