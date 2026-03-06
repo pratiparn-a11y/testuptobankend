@@ -292,9 +292,9 @@ const Dashboard = () => {
                     </div>
                     <div className="flex items-center gap-4">
                         {username && (
-                            <div className="hidden md:flex items-center gap-2 text-pink-100 bg-white/5 px-4 py-2 rounded-xl border border-pink-300/10">
-                                <Sparkles className="h-4 w-4 text-pink-400" />
-                                <span className="text-sm font-medium">{username}</span>
+                            <div className="flex items-center gap-2 text-pink-100 bg-white/5 px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-pink-300/10">
+                                {/* <Sparkles className="h-4 w-4 text-pink-400" /> */}
+                                🐖<span className="text-xs md:text-sm font-medium">{username}</span>
                             </div>
                         )}
                         <button
