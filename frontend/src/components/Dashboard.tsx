@@ -381,7 +381,7 @@ const Dashboard = () => {
                                     </div>
                                     <div className="flex items-center gap-1.5 mt-1">
                                         <Calendar size={11} className="text-pink-300/60" />
-                                        <span className="font-medium whitespace-nowrap">หมดอายุ: {expiryTime.split(' ').slice(0, 3).join(' ')}</span>
+                                        <span className="font-medium whitespace-nowrap">หมดอายุล็อคอิน: {expiryTime.split(' ').slice(0, 3).join(' ')}</span>
                                     </div>
                                 </div>
 
