@@ -369,7 +369,7 @@ const Dashboard = () => {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <Calendar size={12} />
-                                        <span>หมดอายุ: {expiryTime}</span>
+                                        <span>หมดอายุล็อคอิน: {expiryTime}</span>
                                     </div>
                                 </div>
 
