@@ -50,6 +50,21 @@ const Dashboard = () => {
     useEffect(() => {
         fetchUserProfile();
         fetchMemories();
+
+        // Check session when user returns to the tab
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                fetchUserProfile();
+            }
+        };
+
+        window.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleVisibilityChange);
+
+        return () => {
+            window.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleVisibilityChange);
+        };
     }, []);
 
     const fetchUserProfile = async () => {
@@ -134,9 +149,13 @@ const Dashboard = () => {
             setIsModalOpen(false);
             setEditMemory(null);
             fetchMemories();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving memory:', error);
-            alert('บันทึกความทรงจำไม่สำเร็จ 💔');
+            if (error.response?.status === 401) {
+                alert('เซสชันหมดอายุ กรุณาล็อกอินใหม่อีกครั้งเพื่อความปลอดภัยครับ 🔒');
+            } else {
+                alert('บันทึกความทรงจำไม่สำเร็จ กรุณาลองใหม่อีกครั้งครับ 💔');
+            }
         } finally {
             setSubmitting(false);
         }
