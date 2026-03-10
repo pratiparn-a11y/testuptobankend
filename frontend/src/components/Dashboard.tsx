@@ -1,7 +1,24 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { LogOut, Plus, Heart, Trash2, X, Loader2, Calendar, Sparkles, Image as ImageIcon, ChevronLeft, ChevronRight, Download, Pencil, Lock, Camera } from 'lucide-react';
+import {
+    Heart,
+    Plus,
+    Trash2,
+    LogOut,
+    Image as ImageIcon,
+    X,
+    Sparkles,
+    Camera,
+    ChevronLeft,
+    ChevronRight,
+    Download,
+    Clock,
+    Calendar,
+    Loader2,
+    Pencil,
+    Lock as LockIcon
+} from 'lucide-react';
 
 interface MemoryImage {
     id: number;
@@ -27,6 +44,8 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [username, setUsername] = useState('');
+    const [sessionDuration, setSessionDuration] = useState('');
+    const [expiryTime, setExpiryTime] = useState('');
     const [lightboxData, setLightboxData] = useState<{ images: MemoryImage[], index: number } | null>(null);
     const [viewAllMemory, setViewAllMemory] = useState<Memory | null>(null);
     const [isDeletingImage, setIsDeletingImage] = useState<number | null>(null);
@@ -50,6 +69,32 @@ const Dashboard = () => {
     useEffect(() => {
         fetchUserProfile();
         fetchMemories();
+
+        // Session Tracking Logic
+        const loginAtStr = localStorage.getItem('login_at');
+        if (loginAtStr) {
+            const loginAt = new Date(loginAtStr);
+            const expiry = new Date(loginAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+            setExpiryTime(expiry.toLocaleString('th-TH', {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+            }));
+
+            const timer = setInterval(() => {
+                const now = new Date();
+                const diff = now.getTime() - loginAt.getTime();
+
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+                setSessionDuration(
+                    `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+                );
+            }, 1000);
+
+            return () => clearInterval(timer);
+        }
 
         // Check session when user returns to the tab
         const handleVisibilityChange = () => {
@@ -298,31 +343,68 @@ const Dashboard = () => {
             </div>
 
             {/* Navbar */}
-            <nav className="glass sticky top-0 z-50 border-b border-pink-300/10 px-6 py-4">
+            <nav className="glass sticky top-0 z-50 border-b border-pink-300/10 px-3 py-2 sm:px-6 sm:py-4">
                 <div className="max-w-7xl mx-auto flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 animate-pulse-glow">
-                            <Heart className="text-white h-6 w-6" fill="currentColor" />
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/30 animate-pulse-glow flex-shrink-0">
+                            <Heart className="text-white h-5 w-5 sm:h-6 sm:w-6" fill="currentColor" />
                         </div>
-                        <div className="hidden sm:block">
-                            <h1 className="text-2xl font-bold romantic-text">Memory Keeper</h1>
-                            <p className="text-xs text-pink-200/50">เก็บความทรงจำแห่งรัก {username && `ของ ${username}`}</p>
+                        <div className="flex flex-col hidden sm:block">
+                            <h1 className="text-lg sm:text-2xl font-bold romantic-text leading-tight">Memory Keeper</h1>
+                            <p className="text-[10px] sm:text-xs text-pink-200/50 hidden xs:block">
+                                {username ? `ของ ${username} 💕` : 'เก็บความทรงจำแห่งรัก'}
+                            </p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                        {username && (
-                            <div className="flex items-center gap-2 text-pink-100 bg-white/5 px-3 py-1.5 md:px-4 md:py-2 rounded-xl border border-pink-300/10">
-                                {/* <Sparkles className="h-4 w-4 text-pink-400" /> */}
-                                🐖<span className="text-xs md:text-sm font-medium">{username}</span>
+
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        {/* Session Info Section */}
+                        {sessionDuration && (
+                            <div className="flex items-center gap-2 sm:gap-4">
+                                {/* Desktop: Detailed view */}
+                                <div className="hidden md:flex flex-col items-end text-xs text-pink-200/60 leading-tight pr-4 border-r border-pink-300/10">
+                                    <div className="flex items-center gap-1">
+                                        <Clock size={12} />
+                                        <span>ออนไลน์มาแล้ว: {sessionDuration}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Calendar size={12} />
+                                        <span>หมดอายุ: {expiryTime}</span>
+                                    </div>
+                                </div>
+
+                                {/* Mobile: Match user's screenshot */}
+                                <div className="md:hidden flex flex-col items-end text-[9px] text-pink-200/60 leading-tight">
+                                    <div className="flex items-center gap-1.5">
+                                        <Clock size={11} className="text-pink-300/60" />
+                                        <span className="font-medium whitespace-nowrap">ออนไลน์มาแล้ว: {sessionDuration}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        <Calendar size={11} className="text-pink-300/60" />
+                                        <span className="font-medium whitespace-nowrap">หมดอายุ: {expiryTime.split(' ').slice(0, 3).join(' ')}</span>
+                                    </div>
+                                </div>
+
+                                {/* Vertical Divider (Mobile only, Desktop has its own above) */}
+                                <div className="md:hidden h-8 w-[1px] bg-pink-300/10 mx-1" />
                             </div>
                         )}
-                        <button
-                            onClick={handleLogout}
-                            className="flex items-center gap-2 text-pink-200/60 hover:text-red-400 transition-colors px-4 py-2 hover:bg-white/5 rounded-xl text-sm font-medium"
-                        >
-                            <span>ออกจากระบบ</span>
-                            <LogOut className="h-4 w-4" />
-                        </button>
+
+                        <div className="flex items-center gap-2">
+                            {/* Username Pill */}
+                            <div className="flex items-center gap-1 text-pink-100 bg-white/5 px-3 py-1.5 rounded-xl border border-pink-300/10 shadow-inner">
+                                <span className="text-[11px] sm:text-sm font-bold">🐖 {username}</span>
+                            </div>
+
+                            <button
+                                onClick={handleLogout}
+                                className="flex items-center justify-center w-9 h-9 sm:w-auto sm:px-4 sm:py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 sm:text-pink-200/60 sm:hover:text-red-400 transition-all duration-300 border border-red-500/10 sm:border-transparent group"
+                                title="ออกจากระบบ"
+                            >
+                                <LogOut size={18} className="sm:mr-2" />
+                                <span className="hidden sm:inline text-sm font-medium">ออกจากระบบ</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </nav>
@@ -381,7 +463,7 @@ const Dashboard = () => {
                                             {memory.images.slice(0, 4).map((img, idx) => (
                                                 <div
                                                     key={img.id}
-                                                    className={`relative overflow-hidden cursor-zoom-in group/img ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''} ${memory.images.length > 4 && idx === 3 ? 'after:content-["+' + (memory.images.length - 4) + '"] after:absolute after:inset-0 after:bg-black/60 after:flex after:items-center after:justify-center after:text-white after:text-2xl after:font-bold after:z-10 hover:after:bg-black/40 after:transition-all' : ''}`}
+                                                    className={`relative overflow-hidden cursor-zoom-in group/img ${memory.images.length === 3 && idx === 0 ? 'row-span-2' : ''}`}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         if (memory.images.length > 4 && idx === 3) {
@@ -396,6 +478,15 @@ const Dashboard = () => {
                                                         alt={`${memory.title} ${idx}`}
                                                         className="w-full h-full object-cover aspect-square transition-transform duration-700 group-hover/img:scale-110"
                                                     />
+
+                                                    {/* +N Overlay - Explicit JSX for reliability */}
+                                                    {memory.images.length > 4 && idx === 3 && (
+                                                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white backdrop-blur-[2px] hover:bg-black/40 transition-colors z-10">
+                                                            <span className="text-2xl font-black">+{memory.images.length - 4}</span>
+                                                            <span className="text-[10px] font-bold mt-1 uppercase tracking-wider opacity-80">รูปภาพ</span>
+                                                        </div>
+                                                    )}
+
                                                     {/* Delete single image button - Always visible on mobile, hover on desktop */}
                                                     <button
                                                         onClick={(e) => handleDeleteImage(e, img.id)}
@@ -510,7 +601,7 @@ const Dashboard = () => {
                                             onClick={handleUnlockDetails}
                                             className="text-[10px] font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 bg-pink-500/10 px-2 py-1 rounded-full transition-colors"
                                         >
-                                            <Lock className="h-2.5 w-2.5" />
+                                            <LockIcon className="h-2.5 w-2.5" />
                                             แก้ไข
                                         </button>
                                     )}
@@ -538,7 +629,7 @@ const Dashboard = () => {
                                             onClick={handleUnlockDetails}
                                             className="text-[10px] font-bold text-pink-400 hover:text-pink-300 flex items-center gap-1 bg-pink-500/10 px-2 py-1 rounded-full transition-colors"
                                         >
-                                            <Lock className="h-2.5 w-2.5" />
+                                            <LockIcon className="h-2.5 w-2.5" />
                                             แก้ไข
                                         </button>
                                     )}
@@ -609,7 +700,7 @@ const Dashboard = () => {
                                                 >
                                                     <img
                                                         src={prev}
-                                                        alt={`Preview ${idx}`}
+                                                        alt={`Preview ${idx} `}
                                                         className="w-full h-full object-cover rounded-lg border border-pink-300/20"
                                                     />
                                                     <button
@@ -698,7 +789,7 @@ const Dashboard = () => {
                                     <div className="absolute inset-0 bg-black/5 group-hover/photo:opacity-0 transition-opacity" />
                                     <img
                                         src={img.url}
-                                        alt={`Overview ${idx}`}
+                                        alt={`Overview ${idx} `}
                                         className="w-full h-full object-cover"
                                     />
                                 </div>
@@ -775,7 +866,7 @@ const Dashboard = () => {
                                 <div key={i} className="flex-none w-full h-full flex items-center justify-center snap-center p-4">
                                     <img
                                         src={img.url}
-                                        alt={`Memories View ${i}`}
+                                        alt={`Memories View ${i} `}
                                         className="max-w-full max-h-[70vh] md:max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10"
                                     />
                                 </div>

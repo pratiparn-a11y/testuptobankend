@@ -25,6 +25,7 @@ const Login = () => {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 });
                 localStorage.setItem('token', response.data.access_token);
+                localStorage.setItem('login_at', new Date().toISOString());
                 navigate('/dashboard');
             } else {
                 await api.post('/register', { username, password });
@@ -70,7 +71,7 @@ const Login = () => {
                         Memory Keeper
                     </h1>
                     <p className="text-pink-200/70 text-sm flex items-center justify-center gap-2">
-                        <Sparkles className="h-4 w-4" />
+                        🐽
                         เก็บความทรงจำแห่งรัก
                         <Sparkles className="h-4 w-4" />
                     </p>
@@ -82,8 +83,8 @@ const Login = () => {
                         type="button"
                         onClick={() => setIsLogin(true)}
                         className={`flex-1 py-3 rounded-xl font-medium transition-all duration-300 ${isLogin
-                                ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg'
-                                : 'text-pink-200/60 hover:text-pink-200'
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg'
+                            : 'text-pink-200/60 hover:text-pink-200'
                             }`}
                     >
                         💕 เข้าสู่ระบบ
@@ -92,8 +93,8 @@ const Login = () => {
                         type="button"
                         onClick={() => setIsLogin(false)}
                         className={`flex-1 py-3 rounded-xl font-medium transition-all duration-300 ${!isLogin
-                                ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg'
-                                : 'text-pink-200/60 hover:text-pink-200'
+                            ? 'bg-gradient-to-r from-pink-500 to-rose-500 text-white shadow-lg'
+                            : 'text-pink-200/60 hover:text-pink-200'
                             }`}
                     >
                         💖 สมัครสมาชิก
