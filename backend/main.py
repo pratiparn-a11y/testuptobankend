@@ -23,6 +23,12 @@ app.add_middleware(
     expose_headers=["*"],
 )
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    print(f"DEBUG: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to Memory Keeper API"}

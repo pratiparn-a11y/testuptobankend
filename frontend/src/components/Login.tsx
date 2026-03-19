@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
-import { Heart, User, Lock, Loader2, Sparkles } from 'lucide-react';
+import { Heart, User, Lock, Loader2, Sparkles, Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -9,6 +9,7 @@ const Login = () => {
     const [isLogin, setIsLogin] = useState(true);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -125,13 +126,20 @@ const Login = () => {
                     <div className="relative">
                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-pink-300/50" />
                         <input
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             placeholder="รหัสผ่าน"
-                            className="glass-input w-full pl-12 pr-4 py-4"
+                            className="glass-input w-full pl-12 pr-12 py-4"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             required
                         />
+                        <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-pink-300/50 hover:text-pink-300 transition-colors p-1"
+                        >
+                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                        </button>
                     </div>
 
                     <button
