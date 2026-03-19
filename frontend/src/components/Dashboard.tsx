@@ -892,6 +892,23 @@ const Dashboard = () => {
                     </div>
                 </div>
             )}
+
+            {/* Floating Action Button (FAB) for adding memory */}
+            {!isModalOpen && !lightboxData && !viewAllMemory && (
+                <button
+                    onClick={() => setIsModalOpen(true)}
+                    className="fixed bottom-8 right-8 z-[50] flex items-center justify-center p-4 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 shadow-2xl shadow-pink-500/50 hover:scale-110 active:scale-95 transition-all duration-300 group ring-4 ring-white/10"
+                    title="เพิ่มความทรงจำใหม่"
+                >
+                    <div className="relative">
+                        <Plus className="h-6 w-6 text-white group-hover:rotate-90 transition-transform duration-500" />
+                        <Heart className="absolute -top-1 -right-1 h-3 w-3 text-white animate-pulse" fill="currentColor" />
+                    </div>
+                    <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-xs group-hover:ml-3 text-white font-bold transition-all duration-500 text-sm">
+                        เพิ่มความทรงจำ
+                    </span>
+                </button>
+            )}
         </div>
     );
 };
