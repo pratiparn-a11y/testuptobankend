@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Optional
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 import database, models, auth
@@ -18,6 +19,12 @@ router = APIRouter(
 class UserCreate(BaseModel):
     username: str
     password: str
+
+class UserUpdate(BaseModel):
+    password: Optional[str] = None
+    avatar_url: Optional[str] = None
+    partner_name: Optional[str] = None
+    anniversary: Optional[str] = None
 
 @router.post("/register")
 def register(user: UserCreate, db: Session = Depends(database.get_db)):
@@ -53,4 +60,37 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @router.get("/me")
 def get_current_user_profile(current_user: models.User = Depends(auth.get_current_user)):
-    return {"username": current_user.username, "id": current_user.id}
+    return {
+        "username": current_user.username, 
+        "id": current_user.id,
+        "avatar_url": current_user.avatar_url,
+        "partner_name": current_user.partner_name,
+        "anniversary": current_user.anniversary
+    }
+
+@router.put("/me")
+@router.put("/me/")
+def update_user_profile(
+    user_update: UserUpdate, 
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    try:
+        if user_update.password:
+            current_user.hashed_password = auth.get_password_hash(user_update.password)
+        
+        if user_update.avatar_url is not None:
+            current_user.avatar_url = user_update.avatar_url
+            
+        if user_update.partner_name is not None:
+            current_user.partner_name = user_update.partner_name
+            
+        if user_update.anniversary is not None:
+            current_user.anniversary = user_update.anniversary
+            
+        db.commit()
+        db.refresh(current_user)
+        return {"message": "Profile updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating profile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")

@@ -9,6 +9,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    avatar_url = Column(String, nullable=True)
+    partner_name = Column(String, nullable=True)
+    anniversary = Column(String, nullable=True) # Storing as string for simplicity, or could use Date/DateTime
     
     memories = relationship("Memory", back_populates="owner")
 

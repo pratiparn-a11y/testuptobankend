@@ -91,6 +91,31 @@ def create_memory(
         logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
 
+@router.post("/upload")
+@router.post("/upload/")
+def upload_images(
+    images: Optional[List[UploadFile]] = File(None),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    try:
+        if not images:
+            raise HTTPException(status_code=400, detail="No images provided")
+        
+        urls = []
+        for image in images:
+            if image.filename:
+                logger.info(f"Uploading standalone image for {current_user.username}: {image.filename}")
+                uploaded_url, cloudinary_error = upload_image(image.file)
+                if uploaded_url:
+                    urls.append(uploaded_url)
+                else:
+                    logger.error(f"Cloudinary upload failed: {cloudinary_error}")
+                    raise HTTPException(status_code=500, detail=f"Upload failed: {cloudinary_error}")
+        return {"urls": urls}
+    except Exception as e:
+        logger.error(f"Error in standalone upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 from sqlalchemy.orm import Session, joinedload
 
 @router.get("/", response_model=List[MemoryResponse])

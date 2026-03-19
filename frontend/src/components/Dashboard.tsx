@@ -17,6 +17,7 @@ import {
     Calendar,
     Loader2,
     Pencil,
+    User,
     Lock as LockIcon
 } from 'lucide-react';
 
@@ -44,6 +45,12 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [username, setUsername] = useState('');
+    const [avatarUrl, setAvatarUrl] = useState('');
+    const [partnerName, setPartnerName] = useState('');
+    const [anniversary, setAnniversary] = useState('');
+    const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmationCode, setConfirmationCode] = useState('');
     const [sessionDuration, setSessionDuration] = useState('');
     const [expiryTime, setExpiryTime] = useState('');
     const [lightboxData, setLightboxData] = useState<{ images: MemoryImage[], index: number } | null>(null);
@@ -115,7 +122,11 @@ const Dashboard = () => {
     const fetchUserProfile = async () => {
         try {
             const response = await api.get('/me');
-            setUsername(response.data.username);
+            const data = response.data;
+            setUsername(data.username);
+            setAvatarUrl(data.avatar_url || '');
+            setPartnerName(data.partner_name || '');
+            setAnniversary(data.anniversary || '');
         } catch (error) {
             console.error('Error fetching user profile:', error);
         }
@@ -136,6 +147,72 @@ const Dashboard = () => {
     const handleLogout = () => {
         localStorage.removeItem('token');
         navigate('/');
+    };
+
+    const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            setIsSubmittingProfile(true);
+            const formData = new FormData();
+            formData.append('images', file);
+            
+            // Re-using the memory image upload logic for now (Cloudinary)
+            const uploadResponse = await api.post('memories/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            if (uploadResponse.data.urls && uploadResponse.data.urls.length > 0) {
+                setAvatarUrl(uploadResponse.data.urls[0]);
+            }
+        } catch (error: any) {
+            console.error('Error uploading avatar:', error);
+            const errorMsg = error.response?.data?.detail || 'อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่ครับ';
+            alert(`เกิดข้อผิดพลาด: ${errorMsg}`);
+        } finally {
+            setIsSubmittingProfile(false);
+        }
+    };
+
+    const [isSubmittingProfile, setIsSubmittingProfile] = useState(false);
+
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        // Password change security check
+        if (newPassword) {
+            if (confirmationCode !== username) {
+                alert('กรุณาติดต่อผู้พัฒนาระบบเพื่อเปลี่ยนรหัสผ่าน');
+                return;
+            }
+        }
+
+        setIsSubmittingProfile(true);
+        try {
+            const updateData: any = {
+                avatar_url: avatarUrl,
+                partner_name: partnerName,
+                anniversary: anniversary,
+            };
+            
+            if (newPassword) {
+                updateData.password = newPassword;
+            }
+
+            await api.put('me', updateData);
+            alert('อัปเดตโปรไฟล์เรียบร้อยแล้วครับ 💕');
+            setIsProfileModalOpen(false);
+            setNewPassword('');
+            setConfirmationCode('');
+            fetchUserProfile();
+        } catch (error: any) {
+            console.error('Error updating profile:', error);
+            const errorMsg = error.response?.data?.detail || 'เกิดข้อผิดพลาดในการอัปเดตโปรไฟล์';
+            alert(errorMsg);
+        } finally {
+            setIsSubmittingProfile(false);
+        }
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -391,10 +468,19 @@ const Dashboard = () => {
                         )}
 
                         <div className="flex items-center gap-2">
-                            {/* Username Pill */}
-                            <div className="flex items-center gap-1 text-pink-100 bg-white/5 px-3 py-1.5 rounded-xl border border-pink-300/10 shadow-inner">
-                                <span className="text-[11px] sm:text-sm font-bold">🐖 {username}</span>
-                            </div>
+                            <button
+                                onClick={() => setIsProfileModalOpen(true)}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-pink-300/10 transition-all active:scale-95 group"
+                            >
+                                <div className="w-6 h-6 rounded-full overflow-hidden border border-pink-400/50 flex items-center justify-center bg-pink-500/10">
+                                    {avatarUrl ? (
+                                        <img src={avatarUrl} alt="User" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <span className="text-xs">🐖</span>
+                                    )}
+                                </div>
+                                <span className="text-[11px] sm:text-sm font-bold text-pink-100">{username}</span>
+                            </button>
 
                             <button
                                 onClick={handleLogout}
@@ -889,6 +975,120 @@ const Dashboard = () => {
                                 </div>
                             )}
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Profile Edit Modal */}
+            {isProfileModalOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="glass rounded-3xl w-full max-w-md overflow-hidden animate-scale-in">
+                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-gradient-to-r from-pink-500/20 to-rose-500/20">
+                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                <User className="h-5 w-5 text-pink-400" />
+                                แก้ไขโปรไฟล์
+                            </h3>
+                            <button 
+                                onClick={() => setIsProfileModalOpen(false)}
+                                className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleProfileUpdate} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto custom-scrollbar">
+                            {/* Avatar Upload */}
+                            <div className="flex flex-col items-center gap-4">
+                                <div className="relative group">
+                                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl bg-pink-500/10 flex items-center justify-center">
+                                        {avatarUrl ? (
+                                            <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <User size={40} className="text-pink-300/50" />
+                                        )}
+                                        {isSubmittingProfile && (
+                                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                                <Loader2 className="h-8 w-8 text-white animate-spin" />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <label className="absolute bottom-0 right-0 p-2 bg-pink-500 hover:bg-pink-600 rounded-full text-white cursor-pointer shadow-lg transition-all transform hover:scale-110">
+                                        <Camera size={16} />
+                                        <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} disabled={isSubmittingProfile} />
+                                    </label>
+                                </div>
+                                <p className="text-xs text-pink-200/50">คลิกเพื่ออัปโหลดรูปโปรไฟล์</p>
+                            </div>
+
+                            {/* Partner Name */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-pink-200/80 flex items-center gap-2 ml-1">
+                                    <Heart size={14} className="text-pink-400" />
+                                    ชื่อคนพิเศษ (Partner)
+                                </label>
+                                <input
+                                    type="text"
+                                    placeholder="ระบุชื่อคนพิเศษของคุณ"
+                                    className="glass-input w-full px-4 py-3"
+                                    value={partnerName}
+                                    onChange={(e) => setPartnerName(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Anniversary Date */}
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-pink-200/80 flex items-center gap-2 ml-1">
+                                    <Calendar size={14} className="text-pink-400" />
+                                    วันครบรอบของเรา
+                                </label>
+                                <input
+                                    type="date"
+                                    className="glass-input w-full px-4 py-3"
+                                    value={anniversary}
+                                    onChange={(e) => setAnniversary(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Change Password */}
+                            <div className="pt-4 border-t border-white/5 space-y-4">
+                                <label className="text-sm font-medium text-pink-200/80 flex items-center gap-2 ml-1">
+                                    <LockIcon size={14} className="text-pink-400" />
+                                    เปลี่ยนรหัสผ่าน (เว้นว่างได้ถ้าไม่อยากเปลี่ยน)
+                                </label>
+                                <input
+                                    type="password"
+                                    placeholder="รหัสผ่านใหม่"
+                                    className="glass-input w-full px-4 py-3"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                />
+                                {newPassword && (
+                                    <input
+                                        type="text"
+                                        placeholder="ระบุข้อมูลยืนยันตัวตนเพื่อเปลี่ยนรหัสผ่าน"
+                                        className="glass-input w-full px-4 py-3 mt-2 border-pink-500/30"
+                                        value={confirmationCode}
+                                        onChange={(e) => setConfirmationCode(e.target.value)}
+                                    />
+                                )}
+                            </div>
+
+                            {/* Submit Button */}
+                            <button
+                                type="submit"
+                                disabled={isSubmittingProfile}
+                                className="glass-button w-full py-4 rounded-2xl font-bold text-lg shadow-xl shadow-pink-500/20 disabled:opacity-50"
+                            >
+                                {isSubmittingProfile ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                        <span>กำลังบันทึก...</span>
+                                    </div>
+                                ) : (
+                                    "บันทึกการเปลี่ยนแปลง 💕"
+                                )}
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}
