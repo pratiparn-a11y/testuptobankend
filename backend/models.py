@@ -12,6 +12,7 @@ class User(Base):
     avatar_url = Column(String, nullable=True)
     partner_name = Column(String, nullable=True)
     anniversary = Column(String, nullable=True) # Storing as string for simplicity, or could use Date/DateTime
+    notification_message = Column(Text, nullable=True)
     
     memories = relationship("Memory", back_populates="owner")
 

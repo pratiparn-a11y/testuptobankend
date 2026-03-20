@@ -4,7 +4,21 @@ from sqlalchemy.orm import Session
 import models, database
 from database import engine
 
+from sqlalchemy import inspect, text
 models.Base.metadata.create_all(bind=engine)
+
+def migrate_db():
+    inspector = inspect(engine)
+    try:
+        columns = [c['name'] for c in inspector.get_columns('users')]
+        if 'notification_message' not in columns:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE users ADD COLUMN notification_message TEXT"))
+            print("Migrated: Added notification_message column to users table")
+    except Exception as e:
+        print(f"Migration error: {e}")
+
+migrate_db()
 
 # Database initialization is handled by SQLAlchemy on startup
 # migrate_images was for legacy data transition and is no longer needed
