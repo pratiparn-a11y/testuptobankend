@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from datetime import timedelta
 import logging
 import traceback
+from cloudinary_config import delete_image
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -25,6 +26,7 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
     partner_name: Optional[str] = None
     anniversary: Optional[str] = None
+    notification_message: Optional[str] = None
 
 @router.post("/register")
 def register(user: UserCreate, db: Session = Depends(database.get_db)):
@@ -65,7 +67,8 @@ def get_current_user_profile(current_user: models.User = Depends(auth.get_curren
         "id": current_user.id,
         "avatar_url": current_user.avatar_url,
         "partner_name": current_user.partner_name,
-        "anniversary": current_user.anniversary
+        "anniversary": current_user.anniversary,
+        "notification_message": current_user.notification_message
     }
 
 @router.put("/me")
@@ -80,13 +83,23 @@ def update_user_profile(
             current_user.hashed_password = auth.get_password_hash(user_update.password)
         
         if user_update.avatar_url is not None:
+            # โค๊ดส่วนเปลี่ยนโปรไฟล์ลบรูปเก่า
+            # old_avatar_url = current_user.avatar_url
             current_user.avatar_url = user_update.avatar_url
+            # if old_avatar_url and old_avatar_url != user_update.avatar_url:
+            #     success, error = delete_image(old_avatar_url)
+            #     if not success:
+            #         logger.warning(f"Failed to delete old avatar {old_avatar_url}: {error}")
+            # โค๊ดส่วนเปลี่ยนโปรไฟล์ลบรูปเก่า
             
         if user_update.partner_name is not None:
             current_user.partner_name = user_update.partner_name
             
         if user_update.anniversary is not None:
             current_user.anniversary = user_update.anniversary
+            
+        if user_update.notification_message is not None:
+            current_user.notification_message = user_update.notification_message
             
         db.commit()
         db.refresh(current_user)

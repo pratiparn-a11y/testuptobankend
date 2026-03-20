@@ -18,7 +18,12 @@ import {
     Loader2,
     Pencil,
     User,
-    Lock as LockIcon
+    Lock as LockIcon,
+    Eye,
+    EyeOff,
+    Search,
+    Bell,
+    StickyNote
 } from 'lucide-react';
 
 interface MemoryImage {
@@ -33,6 +38,26 @@ interface Memory {
     images: MemoryImage[];
     created_at: string;
 }
+
+// Helper component for highlighting search query matches
+const HighlightText = ({ text, highlight }: { text: string; highlight: string }) => {
+    if (!highlight.trim()) return <>{text}</>;
+    // Split on highlight term and include term in result array
+    const parts = text.split(new RegExp(`(${highlight})`, 'gi'));
+    return (
+        <span className="inline">
+            {parts.map((part, i) =>
+                part.toLowerCase() === highlight.toLowerCase() ? (
+                    <mark key={i} className="bg-pink-500 text-white rounded-[4px] px-1 py-[2px] shadow-[0_0_8px_rgba(236,72,153,0.6)]">
+                        {part}
+                    </mark>
+                ) : (
+                    <span key={i}>{part}</span>
+                )
+            )}
+        </span>
+    );
+};
 
 const Dashboard = () => {
     const [memories, setMemories] = useState<Memory[]>([]);
@@ -50,7 +75,15 @@ const Dashboard = () => {
     const [anniversary, setAnniversary] = useState('');
     const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
     const [newPassword, setNewPassword] = useState('');
-    const [confirmationCode, setConfirmationCode] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [isEditingPassword, setIsEditingPassword] = useState(false);
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [notificationMessage, setNotificationMessage] = useState('');
+    const [isNotificationPopupOpen, setIsNotificationPopupOpen] = useState(false);
+    const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+    const [pendingNotification, setPendingNotification] = useState('');
     const [sessionDuration, setSessionDuration] = useState('');
     const [expiryTime, setExpiryTime] = useState('');
     const [lightboxData, setLightboxData] = useState<{ images: MemoryImage[], index: number } | null>(null);
@@ -127,6 +160,10 @@ const Dashboard = () => {
             setAvatarUrl(data.avatar_url || '');
             setPartnerName(data.partner_name || '');
             setAnniversary(data.anniversary || '');
+            if (data.notification_message) {
+                setNotificationMessage(data.notification_message);
+                setIsNotificationPopupOpen(true);
+            }
         } catch (error) {
             console.error('Error fetching user profile:', error);
         }
@@ -157,7 +194,7 @@ const Dashboard = () => {
             setIsSubmittingProfile(true);
             const formData = new FormData();
             formData.append('images', file);
-            
+
             // Re-using the memory image upload logic for now (Cloudinary)
             const uploadResponse = await api.post('memories/upload', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' }
@@ -179,13 +216,11 @@ const Dashboard = () => {
 
     const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Password change security check
-        if (newPassword) {
-            if (confirmationCode !== username) {
-                alert('กรุณาติดต่อผู้พัฒนาระบบเพื่อเปลี่ยนรหัสผ่าน');
-                return;
-            }
+
+        // Password change security check is now handled via prompt on edit button click
+        if (newPassword && newPassword !== confirmPassword) {
+            alert("รหัสผ่านใหม่และการยืนยันรหัสผ่านไม่ตรงกันครับ");
+            return;
         }
 
         setIsSubmittingProfile(true);
@@ -195,7 +230,7 @@ const Dashboard = () => {
                 partner_name: partnerName,
                 anniversary: anniversary,
             };
-            
+
             if (newPassword) {
                 updateData.password = newPassword;
             }
@@ -203,8 +238,11 @@ const Dashboard = () => {
             await api.put('me', updateData);
             alert('อัปเดตโปรไฟล์เรียบร้อยแล้วครับ 💕');
             setIsProfileModalOpen(false);
+            setIsEditingPassword(false);
+            setShowNewPassword(false);
+            setShowConfirmPassword(false);
             setNewPassword('');
-            setConfirmationCode('');
+            setConfirmPassword('');
             fetchUserProfile();
         } catch (error: any) {
             console.error('Error updating profile:', error);
@@ -290,6 +328,27 @@ const Dashboard = () => {
         setNewNote(memory.note || '');
         setIsDetailsUnlocked(false);
         setIsModalOpen(true);
+    };
+
+    const handleUpdateNotification = () => {
+        setPendingNotification(notificationMessage);
+        setIsNotificationModalOpen(true);
+    };
+
+    const handleSaveNotification = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault();
+        setSubmitting(true);
+        try {
+            await api.put('/me', { notification_message: pendingNotification });
+            setNotificationMessage(pendingNotification);
+            setIsNotificationPopupOpen(!!pendingNotification);
+            setIsNotificationModalOpen(false);
+        } catch (error) {
+            console.error('Error updating notification:', error);
+            alert('ไม่สามารถอัปเดตข้อความประกาศได้');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const handleUnlockDetails = () => {
@@ -400,6 +459,11 @@ const Dashboard = () => {
         }
     };
 
+    const filteredMemories = memories.filter(memory =>
+        (memory.title || '').toLowerCase().includes((searchQuery || '').toLowerCase()) ||
+        (memory.note || '').toLowerCase().includes((searchQuery || '').toLowerCase())
+    );
+
     return (
         <div className="min-h-screen pb-20 relative">
             {/* Floating Hearts Background */}
@@ -497,6 +561,47 @@ const Dashboard = () => {
 
             {/* Main Content */}
             <main className="max-w-7xl mx-auto px-6 py-10 relative z-10">
+
+                {/* Full-Screen Announcement Popup */}
+                {isNotificationPopupOpen && notificationMessage && (
+                    <div className="fixed inset-0 z-[200] flex items-center justify-center px-4 animate-fade-in">
+                        <div className="absolute inset-0 bg-black/80 backdrop-blur-xl" />
+                        <div className="relative w-full max-w-2xl animate-scale-up">
+                            {/* Decorative Elements */}
+                            <div className="absolute -top-12 -left-12 w-32 h-32 bg-pink-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
+                            <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-rose-500/20 rounded-full blur-3xl animate-pulse-slow"></div>
+                            
+                            <div className="glass rounded-[2rem] border-2 border-pink-400/30 overflow-hidden shadow-[0_0_50px_rgba(236,72,153,0.3)]">
+                                <div className="p-8 md:p-12 flex flex-col items-center text-center space-y-8">
+                                    <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center shadow-lg shadow-pink-500/50 animate-bounce-subtle">
+                                        <Bell className="h-10 w-10 text-white" />
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        <h2 className="text-pink-300 text-sm font-bold uppercase tracking-[0.2em]">ประกาศศ ศสาลา 10 ตัว ❤️</h2>
+                                        <div className="max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                                            <p className="text-2xl md:text-4xl font-bold text-white romantic-text leading-relaxed whitespace-pre-line">
+                                                <HighlightText text={notificationMessage} highlight={searchQuery} />
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <button
+                                        onClick={() => setIsNotificationPopupOpen(false)}
+                                        className="glass-button w-full sm:w-auto px-12 py-5 rounded-2xl text-xl font-bold transition-all active:scale-95 group relative overflow-hidden bg-gradient-to-r from-pink-500 to-rose-600 text-white border-none"
+                                    >
+                                        <span className="relative z-10 flex items-center justify-center gap-3">
+                                            รับทราบ 💕
+                                            <Heart className="h-6 w-6 fill-white group-hover:scale-125 transition-transform" />
+                                        </span>
+                                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Header Section */}
                 <div className="flex justify-between items-end mb-12">
                     <div>
@@ -506,15 +611,41 @@ const Dashboard = () => {
                         </h2>
                         <p className="text-pink-200/60">รวบรวมช่วงเวลาแห่งความรัก ({memories.length} ความทรงจำ) 💕</p>
                     </div>
-                    <button
-                        onClick={() => setIsModalOpen(true)}
-                        className="glass-button px-6 py-4 rounded-2xl font-medium flex items-center gap-2"
-                    >
-                        <Plus className="h-5 w-5" />
-                        <span className="hidden sm:inline">เพิ่มความทรงจำ</span>
-                        <Heart className="h-4 w-4" fill="currentColor" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={handleUpdateNotification}
+                            className="glass-button p-4 rounded-2xl font-medium flex items-center justify-center gap-2 group border-dashed hover:border-solid border-pink-300/30"
+                            title={notificationMessage ? "แก้ไขประกาศ" : "ตั้งข้อความประกาศ"}
+                        >
+                            <Bell className={`h-5 w-5 ${notificationMessage ? 'text-pink-400' : 'text-pink-400/70'} group-hover:text-pink-300 transition-colors`} />
+                            <span className="hidden lg:inline text-pink-200/70 group-hover:text-pink-200 transition-colors">
+                                {notificationMessage ? "แก้ไขประกาศ" : "ตั้งประกาศ"}
+                            </span>
+                        </button>
+                        <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="glass-button px-6 py-4 rounded-2xl font-medium flex items-center gap-2"
+                        >
+                            <Plus className="h-5 w-5" />
+                            <span className="hidden sm:inline">เพิ่มความทรงจำ</span>
+                            <Heart className="h-4 w-4" fill="currentColor" />
+                        </button>
+                    </div>
                 </div>
+
+                {/* Search Bar */}
+                {memories.length > 0 && (
+                    <div className="mb-8 relative max-w-2xl">
+                        <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-pink-300/50 w-5 h-5 pointer-events-none" />
+                        <input
+                            type="text"
+                            placeholder="ค้นหาความทรงจำ หรือความรู้สึกที่บันทึกไว้..."
+                            className="glass-input w-full pl-14 pr-4 py-4 rounded-2xl text-pink-100 placeholder:text-pink-200/40 text-lg shadow-inner focus:shadow-pink-400/20 transition-all"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                )}
 
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-64 gap-4">
@@ -535,9 +666,15 @@ const Dashboard = () => {
                             <Heart className="h-4 w-4" fill="currentColor" />
                         </button>
                     </div>
+                ) : filteredMemories.length === 0 ? (
+                    <div className="glass rounded-3xl p-16 text-center animate-fade-in">
+                        <Search className="h-20 w-20 text-pink-400/30 mx-auto mb-6" />
+                        <h3 className="text-2xl font-bold text-pink-200/80 mb-3">ไม่พบความทรงจำ</h3>
+                        <p className="text-pink-200/50">ลองค้นหาด้วยคำอื่นดูนะครับ</p>
+                    </div>
                 ) : (
                     <div className="columns-1 md:columns-2 lg:columns-3 gap-6 space-y-6">
-                        {memories.map((memory) => (
+                        {filteredMemories.map((memory) => (
                             <div
                                 key={memory.id}
                                 className="glass rounded-3xl overflow-hidden break-inside-avoid hover:shadow-2xl hover:shadow-pink-500/20 transition-all duration-500 group hover:-translate-y-1"
@@ -609,11 +746,11 @@ const Dashboard = () => {
                                 <div className="p-6 cursor-pointer" onClick={() => setViewAllMemory(memory)}>
                                     <h3 className="text-xl font-semibold mb-2 text-pink-100 leading-tight flex items-center gap-2">
                                         <Heart className="h-4 w-4 text-pink-400 flex-shrink-0" fill="currentColor" />
-                                        {memory.title}
+                                        <HighlightText text={memory.title} highlight={searchQuery} />
                                     </h3>
                                     {memory.note && (
                                         <p className="text-pink-200/60 text-sm leading-relaxed mb-4">
-                                            {memory.note}
+                                            <HighlightText text={memory.note} highlight={searchQuery} />
                                         </p>
                                     )}
                                     <div className="flex items-center justify-between text-xs text-pink-300/50 border-t border-pink-300/10 pt-4">
@@ -849,14 +986,16 @@ const Dashboard = () => {
                                 <ImageIcon className="text-white h-6 w-6" />
                             </div>
                             <div>
-                                <h3 className="text-2xl font-bold text-pink-100 romantic-text">{viewAllMemory.title}</h3>
+                                <h3 className="text-2xl font-bold text-pink-100 romantic-text">
+                                    <HighlightText text={viewAllMemory.title} highlight={searchQuery} />
+                                </h3>
                                 <p className="text-pink-200/50 text-sm">รูปความทรงจำทั้งหมด ({viewAllMemory.images.length}) ✨</p>
                             </div>
                         </div>
 
                         {viewAllMemory.note && (
                             <p className="text-pink-200/70 text-sm mb-6 bg-white/5 p-4 rounded-2xl border border-pink-300/5 italic">
-                                "{viewAllMemory.note}"
+                                "<HighlightText text={viewAllMemory.note} highlight={searchQuery} />"
                             </p>
                         )}
 
@@ -891,22 +1030,24 @@ const Dashboard = () => {
 
             {/* Lightbox / Full Screen View with Slider */}
             {lightboxData && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-10 animate-fade-in group/lightbox">
+                <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-10 animate-fade-in group/lightbox">
                     <div
                         className="absolute inset-0 bg-black/95 backdrop-blur-2xl cursor-zoom-out"
                         onClick={() => setLightboxData(null)}
                     />
 
                     {/* Controls */}
-                    <div className="absolute top-6 right-6 flex items-center gap-4 z-[110]">
-                        <button
-                            onClick={(e) => handleDeleteImage(e, lightboxData.images[lightboxData.index].id)}
-                            disabled={isDeletingImage === lightboxData.images[lightboxData.index].id}
-                            className="bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
-                            title="ลบรูปภาพนี้"
-                        >
-                            {isDeletingImage === lightboxData.images[lightboxData.index].id ? <Loader2 className="h-6 w-6 animate-spin" /> : <Trash2 className="h-6 w-6" />}
-                        </button>
+                    <div className="absolute top-6 right-6 flex items-center gap-4 z-[130]">
+                        {lightboxData.images[lightboxData.index].id >= 0 && (
+                            <button
+                                onClick={(e) => handleDeleteImage(e, lightboxData.images[lightboxData.index].id)}
+                                disabled={isDeletingImage === lightboxData.images[lightboxData.index].id}
+                                className="bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
+                                title="ลบรูปภาพนี้"
+                            >
+                                {isDeletingImage === lightboxData.images[lightboxData.index].id ? <Loader2 className="h-6 w-6 animate-spin" /> : <Trash2 className="h-6 w-6" />}
+                            </button>
+                        )}
                         <button
                             onClick={(e) => handleDownloadImage(e, lightboxData.images[lightboxData.index].url)}
                             className="bg-white/10 hover:bg-white/20 text-white p-3 rounded-full backdrop-blur-md transition-all flex items-center gap-2"
@@ -988,8 +1129,15 @@ const Dashboard = () => {
                                 <User className="h-5 w-5 text-pink-400" />
                                 แก้ไขโปรไฟล์
                             </h3>
-                            <button 
-                                onClick={() => setIsProfileModalOpen(false)}
+                            <button
+                                onClick={() => {
+                                    setIsProfileModalOpen(false);
+                                    setIsEditingPassword(false);
+                                    setShowNewPassword(false);
+                                    setShowConfirmPassword(false);
+                                    setNewPassword('');
+                                    setConfirmPassword('');
+                                }}
                                 className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-all"
                             >
                                 <X size={20} />
@@ -1000,7 +1148,14 @@ const Dashboard = () => {
                             {/* Avatar Upload */}
                             <div className="flex flex-col items-center gap-4">
                                 <div className="relative group">
-                                    <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl bg-pink-500/10 flex items-center justify-center">
+                                    <div
+                                        className="w-24 h-24 rounded-full overflow-hidden border-4 border-pink-500/30 shadow-2xl bg-pink-500/10 flex items-center justify-center cursor-zoom-in"
+                                        onClick={() => {
+                                            if (avatarUrl) {
+                                                setLightboxData({ images: [{ id: -1, url: avatarUrl }], index: 0 });
+                                            }
+                                        }}
+                                    >
                                         {avatarUrl ? (
                                             <img src={avatarUrl} alt="Avatar Preview" className="w-full h-full object-cover" />
                                         ) : (
@@ -1050,26 +1205,66 @@ const Dashboard = () => {
                             </div>
 
                             {/* Change Password */}
-                            <div className="pt-4 border-t border-white/5 space-y-4">
-                                <label className="text-sm font-medium text-pink-200/80 flex items-center gap-2 ml-1">
-                                    <LockIcon size={14} className="text-pink-400" />
-                                    เปลี่ยนรหัสผ่าน (เว้นว่างได้ถ้าไม่อยากเปลี่ยน)
-                                </label>
-                                <input
-                                    type="password"
-                                    placeholder="รหัสผ่านใหม่"
-                                    className="glass-input w-full px-4 py-3"
-                                    value={newPassword}
-                                    onChange={(e) => setNewPassword(e.target.value)}
-                                />
-                                {newPassword && (
-                                    <input
-                                        type="text"
-                                        placeholder="ระบุข้อมูลยืนยันตัวตนเพื่อเปลี่ยนรหัสผ่าน"
-                                        className="glass-input w-full px-4 py-3 mt-2 border-pink-500/30"
-                                        value={confirmationCode}
-                                        onChange={(e) => setConfirmationCode(e.target.value)}
-                                    />
+                            <div className="pt-4 border-t border-white/5">
+                                <div className="flex items-center justify-between pb-2">
+                                    <label className="text-sm font-medium text-pink-200/80 flex items-center gap-2 ml-1">
+                                        <LockIcon size={14} className="text-pink-400" />
+                                        เปลี่ยนรหัสผ่าน
+                                    </label>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!isEditingPassword) {
+                                                const code = window.prompt("กรุณาติดต่อผู้พัฒนาระบบเพื่อขอรหัสโค๊ดเปลี่ยนรหัสผ่าน");
+                                                if (code !== username) {
+                                                    if (code !== null) alert("รหัสโค๊ดยืนยันไม่ถูกต้อง");
+                                                    return;
+                                                }
+                                            }
+                                            setIsEditingPassword(!isEditingPassword);
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-1 bg-pink-500/20 hover:bg-pink-500/30 text-pink-300 text-xs font-bold rounded-xl transition-colors"
+                                    >
+                                        <LockIcon size={12} />
+                                        {isEditingPassword ? 'ยกเลิก' : 'แก้ไข'}
+                                    </button>
+                                </div>
+
+                                {isEditingPassword && (
+                                    <div className="space-y-4 mt-2 p-4 bg-black/20 rounded-2xl border border-pink-500/10 animate-fade-in relative">
+                                        <div className="relative">
+                                            <input
+                                                type={showNewPassword ? "text" : "password"}
+                                                placeholder="รหัสผ่านใหม่"
+                                                className="glass-input w-full px-4 py-3 pr-12"
+                                                value={newPassword}
+                                                onChange={(e) => setNewPassword(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-pink-300/50 hover:text-pink-300 transition-colors"
+                                            >
+                                                {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
+                                        <div className="relative">
+                                            <input
+                                                type={showConfirmPassword ? "text" : "password"}
+                                                placeholder="ยืนยันรหัสผ่านใหม่"
+                                                className="glass-input w-full px-4 py-3 pr-12"
+                                                value={confirmPassword}
+                                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-pink-300/50 hover:text-pink-300 transition-colors"
+                                            >
+                                                {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                                            </button>
+                                        </div>
+                                    </div>
                                 )}
                             </div>
 
@@ -1108,6 +1303,65 @@ const Dashboard = () => {
                         เพิ่มความทรงจำ
                     </span>
                 </button>
+            )}
+
+            {/* Notification Notepad Modal */}
+            {isNotificationModalOpen && (
+                <div className="fixed inset-0 z-[150] flex items-center justify-center px-4 animate-fade-in">
+                    <div 
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                        onClick={() => !submitting && setIsNotificationModalOpen(false)} 
+                    />
+                    <div className="glass w-full max-w-lg rounded-3xl overflow-hidden relative z-10 border border-pink-300/20 shadow-2xl animate-scale-up">
+                        <div className="p-6 border-b border-pink-300/10 flex justify-between items-center bg-pink-500/5">
+                            <h3 className="text-xl font-bold text-pink-100 flex items-center gap-2">
+                                <StickyNote className="h-5 w-5 text-pink-400" />
+                                สมุดโน้ตประกาศจดบันทึก 📔
+                            </h3>
+                            <button 
+                                onClick={() => setIsNotificationModalOpen(false)}
+                                className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-all"
+                                disabled={submitting}
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        
+                        <div className="p-6 space-y-4">
+                            <div className="relative">
+                                {/* Notepad background effect */}
+                                <div className="absolute inset-0 bg-yellow-50/[0.02] rounded-2xl pointer-events-none border border-white/5"></div>
+                                <textarea
+                                    placeholder="เขียนข้อความรัก หรือประกาศที่อยากให้แสดง..."
+                                    className="w-full h-64 p-6 glass-input rounded-2xl bg-white/5 border-pink-300/10 text-pink-100 placeholder:text-pink-200/30 resize-none focus:ring-2 focus:ring-pink-500/30 transition-all leading-relaxed custom-scrollbar"
+                                    value={pendingNotification}
+                                    onChange={(e) => setPendingNotification(e.target.value)}
+                                    autoFocus
+                                    disabled={submitting}
+                                />
+                                <div className="absolute bottom-4 right-4 text-[10px] text-pink-200/30 uppercase tracking-widest font-bold">
+                                     บันทึกกันลืม ตอนหมู 🐷
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleSaveNotification}
+                                disabled={submitting}
+                                className="glass-button w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 group relative overflow-hidden active:scale-95 transition-all bg-gradient-to-r from-pink-500/20 to-rose-500/20 hover:from-pink-500/30 hover:to-rose-500/30 shadow-lg shadow-pink-500/10"
+                            >
+                                {submitting ? (
+                                    <Loader2 className="animate-spin h-6 w-6" />
+                                ) : (
+                                    <>
+                                        <Heart className={`h-5 w-5 ${pendingNotification ? 'fill-pink-500 text-pink-500' : ''}`} />
+                                        บันทึกกันลืม
+                                        <Heart className="h-4 w-4" fill="currentColor" />
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
